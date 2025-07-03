@@ -1,0 +1,39 @@
+# Instructions for adding foot geom names to your Mujoco model
+
+To enable foot contact detection in your Python code, you need to add explicit names to the foot geoms in your Mujoco XML model. Please follow these steps:
+
+1. Open `assets/h1/h1.xml`.
+2. Locate the following lines inside the `<body name="left_ankle_link" ...>` section:
+   ```xml
+   <geom class="foot1"/>
+   <geom class="foot2"/>
+   <geom class="foot3"/>
+   ```
+   Change them to:
+   ```xml
+   <geom name="left_foot1" class="foot1"/>
+   <geom name="left_foot2" class="foot2"/>
+   <geom name="left_foot3" class="foot3"/>
+   ```
+3. Similarly, in the `<body name="right_ankle_link" ...>` section, change:
+   ```xml
+   <geom class="foot1"/>
+   <geom class="foot2"/>
+   <geom class="foot3"/>
+   ```
+   to:
+   ```xml
+   <geom name="right_foot1" class="foot1"/>
+   <geom name="right_foot2" class="foot2"/>
+   <geom name="right_foot3" class="foot3"/>
+   ```
+
+After making these changes, save the XML file. Then, update your Python code as follows:
+
+- In `h1_env.py`, replace the foot contact logic with:
+  ```python
+  left_contact = any(np.any(self.data.geom(name).conaff > 0) for name in ["left_foot1", "left_foot2", "left_foot3"])
+  right_contact = any(np.any(self.data.geom(name).conaff > 0) for name in ["right_foot1", "right_foot2", "right_foot3"])
+  ```
+
+This will allow your environment to correctly detect foot contacts.
