@@ -12,57 +12,125 @@ class H1StandEnv(Env):
         
         # Get joint IDs
         self.joint_ids = {
+            "left_hip_yaw": self.model.joint("left_hip_yaw").id,
+            "left_hip_roll": self.model.joint("left_hip_roll").id,
             "left_hip_pitch": self.model.joint("left_hip_pitch").id,
-            "right_hip_pitch": self.model.joint("right_hip_pitch").id,
             "left_knee": self.model.joint("left_knee").id,
-            "right_knee": self.model.joint("right_knee").id,
             "left_ankle": self.model.joint("left_ankle").id,
+            "right_hip_yaw": self.model.joint("right_hip_yaw").id,
+            "right_hip_roll": self.model.joint("right_hip_roll").id,
+            "right_hip_pitch": self.model.joint("right_hip_pitch").id,
+            "right_knee": self.model.joint("right_knee").id,
             "right_ankle": self.model.joint("right_ankle").id,
             "torso": self.model.joint("torso").id,
-            "left_hip_roll": self.model.joint("left_hip_roll").id,
-            "left_hip_yaw": self.model.joint("left_hip_yaw").id,
-            "right_hip_roll": self.model.joint("right_hip_roll").id,
-            "right_hip_yaw": self.model.joint("right_hip_yaw").id
+            "left_shoulder_pitch": self.model.joint("left_shoulder_pitch").id,
+            "left_shoulder_roll": self.model.joint("left_shoulder_roll").id,
+            "left_shoulder_yaw": self.model.joint("left_shoulder_yaw").id,
+            "left_elbow": self.model.joint("left_elbow").id,
+            "right_shoulder_pitch": self.model.joint("right_shoulder_pitch").id,
+            "right_shoulder_roll": self.model.joint("right_shoulder_roll").id,
+            "right_shoulder_yaw": self.model.joint("right_shoulder_yaw").id,
+            "right_elbow": self.model.joint("right_elbow").id
         }
         
         # Get actuator IDs
         self.actuator_ids = {
-            "left_hip_pitch": 2,
-            "left_knee": 3,
-            "left_ankle": 4,
-            "right_hip_pitch": 7,
-            "right_knee": 8,
-            "right_ankle": 9,
-            "torso": 10,
-            "left_hip_roll": 1,
-            "left_hip_yaw": 0,
-            "right_hip_roll": 6,
-            "right_hip_yaw": 5
+            "left_hip_yaw": self.model.actuator("left_hip_yaw").id,
+            "left_hip_roll": self.model.actuator("left_hip_roll").id,
+            "left_hip_pitch": self.model.actuator("left_hip_pitch").id,
+            "left_knee": self.model.actuator("left_knee").id,
+            "left_ankle": self.model.actuator("left_ankle").id,
+            "right_hip_yaw": self.model.actuator("right_hip_yaw").id,
+            "right_hip_roll": self.model.actuator("right_hip_roll").id,
+            "right_hip_pitch": self.model.actuator("right_hip_pitch").id,
+            "right_knee": self.model.actuator("right_knee").id,
+            "right_ankle": self.model.actuator("right_ankle").id,
+            "torso": self.model.actuator("torso").id,
+            "left_shoulder_pitch": self.model.actuator("left_shoulder_pitch").id,
+            "left_shoulder_roll": self.model.actuator("left_shoulder_roll").id,
+            "left_shoulder_yaw": self.model.actuator("left_shoulder_yaw").id,
+            "left_elbow": self.model.actuator("left_elbow").id,
+            "right_shoulder_pitch": self.model.actuator("right_shoulder_pitch").id,
+            "right_shoulder_roll": self.model.actuator("right_shoulder_roll").id,
+            "right_shoulder_yaw": self.model.actuator("right_shoulder_yaw").id,
+            "right_elbow": self.model.actuator("right_elbow").id
         }
         
         # Expanded action space
         self.action_space = spaces.Box(
-            low=-1.0, high=1.0, shape=(11,), dtype=np.float32
+            low=-1.0, high=1.0, shape=(len(self.actuator_ids),), dtype=np.float32
         )
         
         # Corrected observation space - 18 dimensions
         self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(26,), dtype=np.float32
+            low=-np.inf, high=np.inf, shape=(2 + 2 + len(self.joint_ids)*2,), dtype=np.float32
         )
         
         # Joint scaling
         self.joint_scaling = {
+            'left_hip_yaw': 200,
+            'left_hip_roll': 200,
             'left_hip_pitch': 200,
-            'right_hip_pitch': 200,
             'left_knee': 300,
-            'right_knee': 300,
             'left_ankle': 40,
+            'right_hip_yaw': 200,
+            'right_hip_roll': 200,
+            'right_hip_pitch': 200,
+            'right_knee': 300,
             'right_ankle': 40,
             'torso': 200,
-            "left_hip_roll": 200,
-            "left_hip_yaw": 200,
-            "right_hip_roll": 200,
-            "right_hip_yaw": 200
+            'left_shoulder_pitch': 40,
+            'left_shoulder_roll': 40,
+            'left_shoulder_yaw': 18,
+            'left_elbow': 18,
+            'right_shoulder_pitch': 40,
+            'right_shoulder_roll': 40,
+            'right_shoulder_yaw': 18,
+            'right_elbow': 18
+        }
+        
+        # Joint-specific PD gains
+        self.Kp = {
+            "left_hip_yaw": 50.0,
+            "left_hip_roll": 50.0,
+            "left_hip_pitch": 60.0,
+            "left_knee": 80.0,
+            "left_ankle": 40.0,
+            "right_hip_yaw": 50.0,
+            "right_hip_roll": 50.0,
+            "right_hip_pitch": 60.0,
+            "right_knee": 80.0,
+            "right_ankle": 40.0,
+            "torso": 30.0,
+            "left_shoulder_pitch": 20.0,
+            "left_shoulder_roll": 20.0,
+            "left_shoulder_yaw": 10.0,
+            "left_elbow": 10.0,
+            "right_shoulder_pitch": 20.0,
+            "right_shoulder_roll": 20.0,
+            "right_shoulder_yaw": 10.0,
+            "right_elbow": 10.0
+        }
+        self.Kd = {
+            "left_hip_yaw": 2.0,
+            "left_hip_roll": 2.0,
+            "left_hip_pitch": 2.5,
+            "left_knee": 3.0,
+            "left_ankle": 1.5,
+            "right_hip_yaw": 2.0,
+            "right_hip_roll": 2.0,
+            "right_hip_pitch": 2.5,
+            "right_knee": 3.0,
+            "right_ankle": 1.5,
+            "torso": 1.0,
+            "left_shoulder_pitch": 0.8,
+            "left_shoulder_roll": 0.8,
+            "left_shoulder_yaw": 0.5,
+            "left_elbow": 0.5,
+            "right_shoulder_pitch": 0.8,
+            "right_shoulder_roll": 0.8,
+            "right_shoulder_yaw": 0.5,
+            "right_elbow": 0.5
         }
         
         # Reset to standing position
@@ -78,7 +146,7 @@ class H1StandEnv(Env):
         # Revert to original working initialization
         # Left leg
         self.data.qpos[9] = 0.3    # Left hip pitch
-        self.data.qpos[10] = -0.6  # Left knee
+        self.data.qpos[10] = -0.6  # Left knee 0.6 orginally
         self.data.qpos[11] = -0.3  # Left ankle
         
         # Right leg
@@ -105,20 +173,62 @@ class H1StandEnv(Env):
         
         # Angular velocity
         ang_vel = self.data.qvel[3:5]
-        
-        # Joint positions and velocities
-        joint_pos = []
-        joint_vel = []
-        for joint_name in ["left_hip_pitch", "left_knee", "left_ankle",
-                          "right_hip_pitch", "right_knee", "right_ankle", "torso", "left_hip_roll", "left_hip_yaw", "right_hip_roll", "right_hip_yaw"]:
-            joint_id = self.joint_ids[joint_name]
-            joint_pos.append(self.data.qpos[joint_id])
-            joint_vel.append(self.data.qvel[joint_id])
-        
-        return np.array(
-            [roll, pitch, ang_vel[0], ang_vel[1]] + joint_pos + joint_vel,
-            dtype=np.float32
-        )
+
+        # Explicit joint positions
+        left_hip_yaw_pos = self.data.qpos[self.joint_ids["left_hip_yaw"]]
+        left_hip_roll_pos = self.data.qpos[self.joint_ids["left_hip_roll"]]
+        left_hip_pitch_pos = self.data.qpos[self.joint_ids["left_hip_pitch"]]
+        left_knee_pos = self.data.qpos[self.joint_ids["left_knee"]]
+        left_ankle_pos = self.data.qpos[self.joint_ids["left_ankle"]]
+        right_hip_yaw_pos = self.data.qpos[self.joint_ids["right_hip_yaw"]]
+        right_hip_roll_pos = self.data.qpos[self.joint_ids["right_hip_roll"]]
+        right_hip_pitch_pos = self.data.qpos[self.joint_ids["right_hip_pitch"]]
+        right_knee_pos = self.data.qpos[self.joint_ids["right_knee"]]
+        right_ankle_pos = self.data.qpos[self.joint_ids["right_ankle"]]
+        torso_pos = self.data.qpos[self.joint_ids["torso"]]
+        left_shoulder_pitch_pos = self.data.qpos[self.joint_ids["left_shoulder_pitch"]]
+        left_shoulder_roll_pos = self.data.qpos[self.joint_ids["left_shoulder_roll"]]
+        left_shoulder_yaw_pos = self.data.qpos[self.joint_ids["left_shoulder_yaw"]]
+        left_elbow_pos = self.data.qpos[self.joint_ids["left_elbow"]]
+        right_shoulder_pitch_pos = self.data.qpos[self.joint_ids["right_shoulder_pitch"]]
+        right_shoulder_roll_pos = self.data.qpos[self.joint_ids["right_shoulder_roll"]]
+        right_shoulder_yaw_pos = self.data.qpos[self.joint_ids["right_shoulder_yaw"]]
+        right_elbow_pos = self.data.qpos[self.joint_ids["right_elbow"]]
+
+        # Explicit joint velocities
+        left_hip_yaw_vel = self.data.qvel[self.joint_ids["left_hip_yaw"]]
+        left_hip_roll_vel = self.data.qvel[self.joint_ids["left_hip_roll"]]
+        left_hip_pitch_vel = self.data.qvel[self.joint_ids["left_hip_pitch"]]
+        left_knee_vel = self.data.qvel[self.joint_ids["left_knee"]]
+        left_ankle_vel = self.data.qvel[self.joint_ids["left_ankle"]]
+        right_hip_yaw_vel = self.data.qvel[self.joint_ids["right_hip_yaw"]]
+        right_hip_roll_vel = self.data.qvel[self.joint_ids["right_hip_roll"]]
+        right_hip_pitch_vel = self.data.qvel[self.joint_ids["right_hip_pitch"]]
+        right_knee_vel = self.data.qvel[self.joint_ids["right_knee"]]
+        right_ankle_vel = self.data.qvel[self.joint_ids["right_ankle"]]
+        torso_vel = self.data.qvel[self.joint_ids["torso"]]
+        left_shoulder_pitch_vel = self.data.qvel[self.joint_ids["left_shoulder_pitch"]]
+        left_shoulder_roll_vel = self.data.qvel[self.joint_ids["left_shoulder_roll"]]
+        left_shoulder_yaw_vel = self.data.qvel[self.joint_ids["left_shoulder_yaw"]]
+        left_elbow_vel = self.data.qvel[self.joint_ids["left_elbow"]]
+        right_shoulder_pitch_vel = self.data.qvel[self.joint_ids["right_shoulder_pitch"]]
+        right_shoulder_roll_vel = self.data.qvel[self.joint_ids["right_shoulder_roll"]]
+        right_shoulder_yaw_vel = self.data.qvel[self.joint_ids["right_shoulder_yaw"]]
+        right_elbow_vel = self.data.qvel[self.joint_ids["right_elbow"]]
+
+        return np.array([
+            roll, pitch, ang_vel[0], ang_vel[1],
+            left_hip_yaw_pos, left_hip_roll_pos, left_hip_pitch_pos, left_knee_pos, left_ankle_pos,
+            right_hip_yaw_pos, right_hip_roll_pos, right_hip_pitch_pos, right_knee_pos, right_ankle_pos,
+            torso_pos,
+            left_shoulder_pitch_pos, left_shoulder_roll_pos, left_shoulder_yaw_pos, left_elbow_pos,
+            right_shoulder_pitch_pos, right_shoulder_roll_pos, right_shoulder_yaw_pos, right_elbow_pos,
+            left_hip_yaw_vel, left_hip_roll_vel, left_hip_pitch_vel, left_knee_vel, left_ankle_vel,
+            right_hip_yaw_vel, right_hip_roll_vel, right_hip_pitch_vel, right_knee_vel, right_ankle_vel,
+            torso_vel,
+            left_shoulder_pitch_vel, left_shoulder_roll_vel, left_shoulder_yaw_vel, left_elbow_vel,
+            right_shoulder_pitch_vel, right_shoulder_roll_vel, right_shoulder_yaw_vel, right_elbow_vel
+        ], dtype=np.float32)
     
     def _foot_in_contact(self, foot_geom_names):
         geom_ids = [self.model.geom(name).id for name in foot_geom_names]
@@ -145,7 +255,7 @@ class H1StandEnv(Env):
         Rbase_height = -k_base_height * ((hbase - 0.96) ** 2)
         reward += Rbase_height
 
-        # --- Torque penalty (energy efficiency) ---
+        # --- Torque penalty ---
         k_torque = .0001 #0.001
         torque_penalty = -k_torque * np.sum(np.square(self.data.ctrl))
         reward += torque_penalty
@@ -201,16 +311,54 @@ class H1StandEnv(Env):
         torso_height = self.data.xpos[self.torso_body.id][2]
         
         fallen = abs(roll) > 0.5 or abs(pitch) > 0.5 or torso_height < 0.5
-        timeout = self.data.time > 10.0
+        timeout = self.data.time > 13.0
         
         return fallen or timeout
-      
+    #MODIFY THIS SO IT MOVES ALL JOINT
     def step(self, action):
-        # Apply scaled control inputs
-        for i, joint_name in enumerate(["left_hip_pitch", "left_knee", "left_ankle",
-                                       "right_hip_pitch", "right_knee", "right_ankle", "torso", "left_hip_roll", "left_hip_yaw", "right_hip_roll", "right_hip_yaw"]):
-            ctrl_idx = self.actuator_ids[joint_name]
-            self.data.ctrl[ctrl_idx] = action[i] * self.joint_scaling[joint_name]
+        # PD control: interpret action as desired position in [-1, 1] scaled to joint range
+        # Explicit, line-by-line for all 19 actuators/joints
+        # Compute desired positions
+        q_des_left_hip_yaw = 0.5 * (action[0] + 1) * (self.model.jnt_range[self.joint_ids["left_hip_yaw"]][1] - self.model.jnt_range[self.joint_ids["left_hip_yaw"]][0]) + self.model.jnt_range[self.joint_ids["left_hip_yaw"]][0]
+        q_des_left_hip_roll = 0.5 * (action[1] + 1) * (self.model.jnt_range[self.joint_ids["left_hip_roll"]][1] - self.model.jnt_range[self.joint_ids["left_hip_roll"]][0]) + self.model.jnt_range[self.joint_ids["left_hip_roll"]][0]
+        q_des_left_hip_pitch = 0.5 * (action[2] + 1) * (self.model.jnt_range[self.joint_ids["left_hip_pitch"]][1] - self.model.jnt_range[self.joint_ids["left_hip_pitch"]][0]) + self.model.jnt_range[self.joint_ids["left_hip_pitch"]][0]
+        q_des_left_knee = 0.5 * (action[3] + 1) * (self.model.jnt_range[self.joint_ids["left_knee"]][1] - self.model.jnt_range[self.joint_ids["left_knee"]][0]) + self.model.jnt_range[self.joint_ids["left_knee"]][0]
+        q_des_left_ankle = 0.5 * (action[4] + 1) * (self.model.jnt_range[self.joint_ids["left_ankle"]][1] - self.model.jnt_range[self.joint_ids["left_ankle"]][0]) + self.model.jnt_range[self.joint_ids["left_ankle"]][0]
+        q_des_right_hip_yaw = 0.5 * (action[5] + 1) * (self.model.jnt_range[self.joint_ids["right_hip_yaw"]][1] - self.model.jnt_range[self.joint_ids["right_hip_yaw"]][0]) + self.model.jnt_range[self.joint_ids["right_hip_yaw"]][0]
+        q_des_right_hip_roll = 0.5 * (action[6] + 1) * (self.model.jnt_range[self.joint_ids["right_hip_roll"]][1] - self.model.jnt_range[self.joint_ids["right_hip_roll"]][0]) + self.model.jnt_range[self.joint_ids["right_hip_roll"]][0]
+        q_des_right_hip_pitch = 0.5 * (action[7] + 1) * (self.model.jnt_range[self.joint_ids["right_hip_pitch"]][1] - self.model.jnt_range[self.joint_ids["right_hip_pitch"]][0]) + self.model.jnt_range[self.joint_ids["right_hip_pitch"]][0]
+        q_des_right_knee = 0.5 * (action[8] + 1) * (self.model.jnt_range[self.joint_ids["right_knee"]][1] - self.model.jnt_range[self.joint_ids["right_knee"]][0]) + self.model.jnt_range[self.joint_ids["right_knee"]][0]
+        q_des_right_ankle = 0.5 * (action[9] + 1) * (self.model.jnt_range[self.joint_ids["right_ankle"]][1] - self.model.jnt_range[self.joint_ids["right_ankle"]][0]) + self.model.jnt_range[self.joint_ids["right_ankle"]][0]
+        q_des_torso = 0.5 * (action[10] + 1) * (self.model.jnt_range[self.joint_ids["torso"]][1] - self.model.jnt_range[self.joint_ids["torso"]][0]) + self.model.jnt_range[self.joint_ids["torso"]][0]
+        q_des_left_shoulder_pitch = 0.5 * (action[11] + 1) * (self.model.jnt_range[self.joint_ids["left_shoulder_pitch"]][1] - self.model.jnt_range[self.joint_ids["left_shoulder_pitch"]][0]) + self.model.jnt_range[self.joint_ids["left_shoulder_pitch"]][0]
+        q_des_left_shoulder_roll = 0.5 * (action[12] + 1) * (self.model.jnt_range[self.joint_ids["left_shoulder_roll"]][1] - self.model.jnt_range[self.joint_ids["left_shoulder_roll"]][0]) + self.model.jnt_range[self.joint_ids["left_shoulder_roll"]][0]
+        q_des_left_shoulder_yaw = 0.5 * (action[13] + 1) * (self.model.jnt_range[self.joint_ids["left_shoulder_yaw"]][1] - self.model.jnt_range[self.joint_ids["left_shoulder_yaw"]][0]) + self.model.jnt_range[self.joint_ids["left_shoulder_yaw"]][0]
+        q_des_left_elbow = 0.5 * (action[14] + 1) * (self.model.jnt_range[self.joint_ids["left_elbow"]][1] - self.model.jnt_range[self.joint_ids["left_elbow"]][0]) + self.model.jnt_range[self.joint_ids["left_elbow"]][0]
+        q_des_right_shoulder_pitch = 0.5 * (action[15] + 1) * (self.model.jnt_range[self.joint_ids["right_shoulder_pitch"]][1] - self.model.jnt_range[self.joint_ids["right_shoulder_pitch"]][0]) + self.model.jnt_range[self.joint_ids["right_shoulder_pitch"]][0]
+        q_des_right_shoulder_roll = 0.5 * (action[16] + 1) * (self.model.jnt_range[self.joint_ids["right_shoulder_roll"]][1] - self.model.jnt_range[self.joint_ids["right_shoulder_roll"]][0]) + self.model.jnt_range[self.joint_ids["right_shoulder_roll"]][0]
+        q_des_right_shoulder_yaw = 0.5 * (action[17] + 1) * (self.model.jnt_range[self.joint_ids["right_shoulder_yaw"]][1] - self.model.jnt_range[self.joint_ids["right_shoulder_yaw"]][0]) + self.model.jnt_range[self.joint_ids["right_shoulder_yaw"]][0]
+        q_des_right_elbow = 0.5 * (action[18] + 1) * (self.model.jnt_range[self.joint_ids["right_elbow"]][1] - self.model.jnt_range[self.joint_ids["right_elbow"]][0]) + self.model.jnt_range[self.joint_ids["right_elbow"]][0]
+
+        # PD control for each joint
+        self.data.ctrl[self.actuator_ids["left_hip_yaw"]] = self.Kp["left_hip_yaw"] * (q_des_left_hip_yaw - self.data.qpos[self.joint_ids["left_hip_yaw"]]) - self.Kd["left_hip_yaw"] * self.data.qvel[self.joint_ids["left_hip_yaw"]]
+        self.data.ctrl[self.actuator_ids["left_hip_roll"]] = self.Kp["left_hip_roll"] * (q_des_left_hip_roll - self.data.qpos[self.joint_ids["left_hip_roll"]]) - self.Kd["left_hip_roll"] * self.data.qvel[self.joint_ids["left_hip_roll"]]
+        self.data.ctrl[self.actuator_ids["left_hip_pitch"]] = self.Kp["left_hip_pitch"] * (q_des_left_hip_pitch - self.data.qpos[self.joint_ids["left_hip_pitch"]]) - self.Kd["left_hip_pitch"] * self.data.qvel[self.joint_ids["left_hip_pitch"]]
+        self.data.ctrl[self.actuator_ids["left_knee"]] = self.Kp["left_knee"] * (q_des_left_knee - self.data.qpos[self.joint_ids["left_knee"]]) - self.Kd["left_knee"] * self.data.qvel[self.joint_ids["left_knee"]]
+        self.data.ctrl[self.actuator_ids["left_ankle"]] = self.Kp["left_ankle"] * (q_des_left_ankle - self.data.qpos[self.joint_ids["left_ankle"]]) - self.Kd["left_ankle"] * self.data.qvel[self.joint_ids["left_ankle"]]
+        self.data.ctrl[self.actuator_ids["right_hip_yaw"]] = self.Kp["right_hip_yaw"] * (q_des_right_hip_yaw - self.data.qpos[self.joint_ids["right_hip_yaw"]]) - self.Kd["right_hip_yaw"] * self.data.qvel[self.joint_ids["right_hip_yaw"]]
+        self.data.ctrl[self.actuator_ids["right_hip_roll"]] = self.Kp["right_hip_roll"] * (q_des_right_hip_roll - self.data.qpos[self.joint_ids["right_hip_roll"]]) - self.Kd["right_hip_roll"] * self.data.qvel[self.joint_ids["right_hip_roll"]]
+        self.data.ctrl[self.actuator_ids["right_hip_pitch"]] = self.Kp["right_hip_pitch"] * (q_des_right_hip_pitch - self.data.qpos[self.joint_ids["right_hip_pitch"]]) - self.Kd["right_hip_pitch"] * self.data.qvel[self.joint_ids["right_hip_pitch"]]
+        self.data.ctrl[self.actuator_ids["right_knee"]] = self.Kp["right_knee"] * (q_des_right_knee - self.data.qpos[self.joint_ids["right_knee"]]) - self.Kd["right_knee"] * self.data.qvel[self.joint_ids["right_knee"]]
+        self.data.ctrl[self.actuator_ids["right_ankle"]] = self.Kp["right_ankle"] * (q_des_right_ankle - self.data.qpos[self.joint_ids["right_ankle"]]) - self.Kd["right_ankle"] * self.data.qvel[self.joint_ids["right_ankle"]]
+        self.data.ctrl[self.actuator_ids["torso"]] = self.Kp["torso"] * (q_des_torso - self.data.qpos[self.joint_ids["torso"]]) - self.Kd["torso"] * self.data.qvel[self.joint_ids["torso"]]
+        self.data.ctrl[self.actuator_ids["left_shoulder_pitch"]] = self.Kp["left_shoulder_pitch"] * (q_des_left_shoulder_pitch - self.data.qpos[self.joint_ids["left_shoulder_pitch"]]) - self.Kd["left_shoulder_pitch"] * self.data.qvel[self.joint_ids["left_shoulder_pitch"]]
+        self.data.ctrl[self.actuator_ids["left_shoulder_roll"]] = self.Kp["left_shoulder_roll"] * (q_des_left_shoulder_roll - self.data.qpos[self.joint_ids["left_shoulder_roll"]]) - self.Kd["left_shoulder_roll"] * self.data.qvel[self.joint_ids["left_shoulder_roll"]]
+        self.data.ctrl[self.actuator_ids["left_shoulder_yaw"]] = self.Kp["left_shoulder_yaw"] * (q_des_left_shoulder_yaw - self.data.qpos[self.joint_ids["left_shoulder_yaw"]]) - self.Kd["left_shoulder_yaw"] * self.data.qvel[self.joint_ids["left_shoulder_yaw"]]
+        self.data.ctrl[self.actuator_ids["left_elbow"]] = self.Kp["left_elbow"] * (q_des_left_elbow - self.data.qpos[self.joint_ids["left_elbow"]]) - self.Kd["left_elbow"] * self.data.qvel[self.joint_ids["left_elbow"]]
+        self.data.ctrl[self.actuator_ids["right_shoulder_pitch"]] = self.Kp["right_shoulder_pitch"] * (q_des_right_shoulder_pitch - self.data.qpos[self.joint_ids["right_shoulder_pitch"]]) - self.Kd["right_shoulder_pitch"] * self.data.qvel[self.joint_ids["right_shoulder_pitch"]]
+        self.data.ctrl[self.actuator_ids["right_shoulder_roll"]] = self.Kp["right_shoulder_roll"] * (q_des_right_shoulder_roll - self.data.qpos[self.joint_ids["right_shoulder_roll"]]) - self.Kd["right_shoulder_roll"] * self.data.qvel[self.joint_ids["right_shoulder_roll"]]
+        self.data.ctrl[self.actuator_ids["right_shoulder_yaw"]] = self.Kp["right_shoulder_yaw"] * (q_des_right_shoulder_yaw - self.data.qpos[self.joint_ids["right_shoulder_yaw"]]) - self.Kd["right_shoulder_yaw"] * self.data.qvel[self.joint_ids["right_shoulder_yaw"]]
+        self.data.ctrl[self.actuator_ids["right_elbow"]] = self.Kp["right_elbow"] * (q_des_right_elbow - self.data.qpos[self.joint_ids["right_elbow"]]) - self.Kd["right_elbow"] * self.data.qvel[self.joint_ids["right_elbow"]]
         mujoco.mj_step(self.model, self.data)
         obs = self._get_obs()
         reward, reward_info = self._get_reward(obs, return_info=True)
