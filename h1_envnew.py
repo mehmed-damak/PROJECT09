@@ -267,7 +267,7 @@ class H1StandEnv(Env):
         torso_height = self.data.xpos[self.torso_body.id][2]
         
         fallen = abs(roll) > 0.5 or abs(pitch) > 0.5 or torso_height < 0.5
-        timeout = self.data.time > 10.0
+        timeout = self.data.time > 13.0
         
         return fallen or timeout
     #MODIFY THIS SO IT MOVES ALL JOINT

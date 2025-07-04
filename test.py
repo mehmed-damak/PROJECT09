@@ -4,7 +4,7 @@ import mujoco.viewer
 import time
 
 # Load best model
-model = PPO.load("h1_stand_280000")  # Try different checkpoints
+model = PPO.load("h1_stand_0")  # Try different checkpoints
 
 # Create environment
 env = H1StandEnv()
@@ -20,7 +20,7 @@ with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
         total_reward += reward
         
         viewer.sync()
-        time.sleep(0.005)
+        time.sleep(0.01)
         
         if done:
             print(f"Episode ended. Total reward: {total_reward:.2f}")

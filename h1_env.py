@@ -145,6 +145,15 @@ class H1StandEnv(Env):
         
         # Revert to original working initialization
         # Left leg
+        self.data.qpos[9] = -0.2   # Left hip pitch
+        self.data.qpos[10] = 0.5 # Left knee 0.6 orginally
+        self.data.qpos[11] = -0.3  # Left ankle
+        
+        # Right leg
+        self.data.qpos[14] = -0.2  # Right hip pitch
+        self.data.qpos[15] = 0.5  # Right knee
+        self.data.qpos[16] = -0.3  # Right ankle
+        '''
         self.data.qpos[9] = 0.3    # Left hip pitch
         self.data.qpos[10] = -0.6  # Left knee 0.6 orginally
         self.data.qpos[11] = -0.3  # Left ankle
@@ -154,6 +163,13 @@ class H1StandEnv(Env):
         self.data.qpos[15] = -0.6  # Right knee
         self.data.qpos[16] = -0.3  # Right ankle
         
+        data.qpos[model.joint('left_hip_pitch').qposadr] = -.2
+        data.qpos[model.joint('left_knee').qposadr] = 0.5
+        data.qpos[model.joint('left_ankle').qposadr] = -.3
+        data.qpos[model.joint('right_hip_pitch').qposadr] = -.2
+        data.qpos[model.joint('right_knee').qposadr] = .5
+        data.qpos[model.joint('right_ankle').qposadr] = -.3
+        '''
         # Torso
         self.data.qpos[self.joint_ids["torso"]] = 0.0
         
