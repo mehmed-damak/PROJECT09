@@ -15,7 +15,7 @@ model = PPO(
     policy_kwargs={
         "net_arch": [128, 128]  # Larger network for more complex state
     },
-    learning_rate=3e-4,
+    learning_rate=1e-4,
     n_steps=2048,
     batch_size=64,
     gamma=0.995,
@@ -31,7 +31,7 @@ model = PPO(
 os.makedirs("./h1_tensorboard/", exist_ok=True)
 
 # Train in increments with evaluation
-for i in range(200):
+for i in range(500):
     model.learn(total_timesteps=10000, reset_num_timesteps=False)
     model.save(f"h1_stand_{i*10000}")
     
