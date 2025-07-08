@@ -268,39 +268,36 @@ class H1StandEnv(Env):
  
     def _get_reward(self, obs, return_info=False):
         """Richer reward: orientation, base height, torque penalty, foot contact, joint limit penalty, alive bonus, forward velocity, with diagnostics"""
-        torso_height = self.data.body('torso_link').xpos[2]
-        # --- Orientation penalty ---
-        k_orientation = 0.1
+        torso_height = self.data.body('torso_link').xpos[2]        # --- Orientation penalty (most important for standing) ---
+        k_orientation = 2.0  # Increased for better stability
         torso_mat = self.data.xmat[self.torso_body.id].reshape(3, 3)
         z_axis = torso_mat[:, 2]
         gp = abs(z_axis[0]) + abs(z_axis[1]) + abs(z_axis[2])
         Rorientation = -k_orientation * gp
         reward = Rorientation
- 
+
         # --- Base height penalty ---
-        # k_base_height = 0.98
+        k_base_height = 1.5  # Increased for height importance
         hbase = torso_height
         height_penalty = 0
-        if hbase < 0.98:
-            height_penalty = -1.0 * (0.92 - hbase)
-        elif hbase > 1:
-            height_penalty = -1.0 * (hbase - 0.94)  # Encourage not too high
+        if hbase < 0.85:  # Lower threshold for shorter stance
+            height_penalty = -k_base_height * (0.85 - hbase)
+        elif hbase > 1.0:
+            height_penalty = -k_base_height * (hbase - 1.0)  # Encourage not too high
         reward += height_penalty
- 
-        # --- Torque penalty ---
-        k_torque = .0001 #0.001
+
+        # --- Torque penalty (energy efficiency) ---
+        k_torque = 0.001  # Increased to discourage excessive torques
         torque_penalty = -k_torque * np.sum(np.square(self.data.ctrl))
-        reward += torque_penalty
- 
-        # --- Foot contact encouragement (reward for both feet in contact) ---
-        k_foot_contact = 1 #0.2
+        reward += torque_penalty        # --- Foot contact encouragement (critical for standing) ---
+        k_foot_contact = 2.0  # Increased - very important for stability
         left_foot_contact = self._foot_in_contact(["left_foot1", "left_foot2", "left_foot3"])
         right_foot_contact = self._foot_in_contact(["right_foot1", "right_foot2", "right_foot3"])
         foot_contact_reward = k_foot_contact * (float(left_foot_contact) + float(right_foot_contact))
         reward += foot_contact_reward
- 
+
         # --- Joint limit penalty ---
-        k_joint_limit = 0.01
+        k_joint_limit = 0.1  # Increased to better avoid joint limits
         joint_limit_penalty = 0.0
         for joint_name in self.joint_ids:
             joint_id = self.joint_ids[joint_name]
@@ -312,18 +309,18 @@ class H1StandEnv(Env):
             if q < qmin + margin or q > qmax - margin:
                 joint_limit_penalty -= k_joint_limit
         reward += joint_limit_penalty
- 
+
         # --- Alive bonus (scaled with time) ---
-        alive_bonus = 0.1 * self.data.time
+        alive_bonus = 0.05 * self.data.time  # Reduced to not dominate other rewards
         reward += alive_bonus        
         
         # --- Hip position penalty (encourage neutral hip positions) ---
-        k_hip_pos = 1
+        k_hip_pos = 0.5  # Reduced from 1.0 to balance with other penalties
         hip_pos_penalty = self._reward_hip_pos()
         reward -= k_hip_pos * hip_pos_penalty
 
         # --- Torso position penalty (encourage stable torso) ---
-        k_torso_pos = 0.2
+        k_torso_pos = 1.0  # Increased for better torso stability
         torso_pos = self.data.qpos[self.joint_ids["torso"]]
         torso_pos_penalty = k_torso_pos * (torso_pos ** 2)
         reward -= torso_pos_penalty
