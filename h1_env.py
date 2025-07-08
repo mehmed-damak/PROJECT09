@@ -318,7 +318,7 @@ class H1StandEnv(Env):
         reward += alive_bonus        
         
         # --- Hip position penalty (encourage neutral hip positions) ---
-        k_hip_pos = .5
+        k_hip_pos = 1
         hip_pos_penalty = self._reward_hip_pos()
         reward -= k_hip_pos * hip_pos_penalty
 
