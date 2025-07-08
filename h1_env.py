@@ -280,8 +280,8 @@ class H1StandEnv(Env):
         k_base_height = 1.5  # Increased for height importance
         hbase = torso_height
         height_penalty = 0
-        if hbase < 0.85:  # Lower threshold for shorter stance
-            height_penalty = -k_base_height * (0.85 - hbase)
+        if hbase < 0.96:  # Lower threshold for shorter stance
+            height_penalty = -k_base_height * (0.96 - hbase)
         elif hbase > 1.0:
             height_penalty = -k_base_height * (hbase - 1.0)  # Encourage not too high
         reward += height_penalty
