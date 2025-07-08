@@ -280,7 +280,7 @@ class H1StandEnv(Env):
         # --- Base height penalty ---
         k_base_height = 1.0
         hbase = torso_height
-        Rbase_height = -k_base_height * ((hbase - 0.96) ** 2)
+        Rbase_height = -k_base_height * ((hbase - 0.92) ** 2)  # Lowered from 0.96 to 0.90
         reward += Rbase_height
 
         # --- Torque penalty ---
