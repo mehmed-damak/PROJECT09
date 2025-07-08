@@ -246,6 +246,18 @@ class H1StandEnv(Env):
             right_shoulder_pitch_vel, right_shoulder_roll_vel, right_shoulder_yaw_vel, right_elbow_vel
         ], dtype=np.float32)
     
+    def _reward_hip_pos(self):
+        """Calculate hip position penalty - penalizes deviation from neutral hip positions"""
+        # Get hip yaw and hip roll positions for both legs
+        left_hip_yaw = self.data.qpos[self.joint_ids["left_hip_yaw"]]
+        left_hip_roll = self.data.qpos[self.joint_ids["left_hip_roll"]]
+        right_hip_yaw = self.data.qpos[self.joint_ids["right_hip_yaw"]]
+        right_hip_roll = self.data.qpos[self.joint_ids["right_hip_roll"]]
+        
+        # Calculate squared positions (penalty for deviation from 0)
+        hip_positions = np.array([left_hip_yaw, left_hip_roll, right_hip_yaw, right_hip_roll])
+        return np.sum(np.square(hip_positions))
+
     def _foot_in_contact(self, foot_geom_names):
         geom_ids = [self.model.geom(name).id for name in foot_geom_names]
         for i in range(self.data.ncon):
@@ -301,6 +313,11 @@ class H1StandEnv(Env):
         alive_bonus = 0.1 * self.data.time
         reward += alive_bonus
 
+        # --- Hip position penalty (encourage neutral hip positions) ---
+        k_hip_pos = 0.1
+        hip_pos_penalty = self._reward_hip_pos()
+        reward -= k_hip_pos * hip_pos_penalty
+
         # --- Forward velocity reward (encourage walking) ---
         '''
         k_forward_vel = 0.5
@@ -316,6 +333,7 @@ class H1StandEnv(Env):
                 'foot_contact_reward': foot_contact_reward,
                 'joint_limit_penalty': joint_limit_penalty,
                 'alive_bonus': alive_bonus,
+                'hip_pos_penalty': -k_hip_pos * hip_pos_penalty,
                 #'forward_vel_reward': forward_vel_reward,
                 'total_reward': reward
             }
