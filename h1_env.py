@@ -1,7 +1,7 @@
 import mujoco
 import numpy as np
 from gymnasium import Env, spaces
-
+ 
 class H1StandEnv(Env):
     def __init__(self):
         self.model = mujoco.MjModel.from_xml_path("assets/h1/scene.xml")
@@ -189,7 +189,7 @@ class H1StandEnv(Env):
         
         # Angular velocity
         ang_vel = self.data.qvel[3:5]
-
+ 
         # Explicit joint positions
         left_hip_yaw_pos = self.data.qpos[self.joint_ids["left_hip_yaw"]]
         left_hip_roll_pos = self.data.qpos[self.joint_ids["left_hip_roll"]]
@@ -210,7 +210,7 @@ class H1StandEnv(Env):
         right_shoulder_roll_pos = self.data.qpos[self.joint_ids["right_shoulder_roll"]]
         right_shoulder_yaw_pos = self.data.qpos[self.joint_ids["right_shoulder_yaw"]]
         right_elbow_pos = self.data.qpos[self.joint_ids["right_elbow"]]
-
+ 
         # Explicit joint velocities
         left_hip_yaw_vel = self.data.qvel[self.joint_ids["left_hip_yaw"]]
         left_hip_roll_vel = self.data.qvel[self.joint_ids["left_hip_roll"]]
@@ -231,7 +231,7 @@ class H1StandEnv(Env):
         right_shoulder_roll_vel = self.data.qvel[self.joint_ids["right_shoulder_roll"]]
         right_shoulder_yaw_vel = self.data.qvel[self.joint_ids["right_shoulder_yaw"]]
         right_elbow_vel = self.data.qvel[self.joint_ids["right_elbow"]]
-
+ 
         return np.array([
             roll, pitch, ang_vel[0], ang_vel[1],
             left_hip_yaw_pos, left_hip_roll_pos, left_hip_pitch_pos, left_knee_pos, left_ankle_pos,
@@ -257,7 +257,7 @@ class H1StandEnv(Env):
         # Calculate squared positions (penalty for deviation from 0)
         hip_positions = np.array([left_hip_yaw, left_hip_roll, right_hip_yaw, right_hip_roll])
         return np.sum(np.square(hip_positions))
-
+ 
     def _foot_in_contact(self, foot_geom_names):
         geom_ids = [self.model.geom(name).id for name in foot_geom_names]
         for i in range(self.data.ncon):
@@ -265,7 +265,7 @@ class H1StandEnv(Env):
             if contact.geom1 in geom_ids or contact.geom2 in geom_ids:
                 return True
         return False
-
+ 
     def _get_reward(self, obs, return_info=False):
         """Richer reward: orientation, base height, torque penalty, foot contact, joint limit penalty, alive bonus, forward velocity, with diagnostics"""
         torso_height = self.data.body('torso_link').xpos[2]
@@ -276,25 +276,29 @@ class H1StandEnv(Env):
         gp = abs(z_axis[0]) + abs(z_axis[1]) + abs(z_axis[2])
         Rorientation = -k_orientation * gp
         reward = Rorientation
-
+ 
         # --- Base height penalty ---
-        k_base_height = 1.0
+        # k_base_height = 0.98
         hbase = torso_height
-        Rbase_height = -k_base_height * ((hbase - 0.92) ** 2)  # Lowered from 0.96 to 0.90
-        reward += Rbase_height
-
+        height_penalty = 0
+        if hbase < 0.96:
+            height_penalty = -1.0 * (0.92 - hbase)
+        elif hbase > 0.98:
+            height_penalty = -1.0 * (hbase - 0.94)  # Encourage not too high
+        reward += height_penalty
+ 
         # --- Torque penalty ---
         k_torque = .0001 #0.001
         torque_penalty = -k_torque * np.sum(np.square(self.data.ctrl))
         reward += torque_penalty
-
+ 
         # --- Foot contact encouragement (reward for both feet in contact) ---
         k_foot_contact = 1 #0.2
         left_foot_contact = self._foot_in_contact(["left_foot1", "left_foot2", "left_foot3"])
         right_foot_contact = self._foot_in_contact(["right_foot1", "right_foot2", "right_foot3"])
         foot_contact_reward = k_foot_contact * (float(left_foot_contact) + float(right_foot_contact))
         reward += foot_contact_reward
-
+ 
         # --- Joint limit penalty ---
         k_joint_limit = 0.01
         joint_limit_penalty = 0.0
@@ -308,16 +312,16 @@ class H1StandEnv(Env):
             if q < qmin + margin or q > qmax - margin:
                 joint_limit_penalty -= k_joint_limit
         reward += joint_limit_penalty
-
+ 
         # --- Alive bonus (scaled with time) ---
         alive_bonus = 0.1 * self.data.time
         reward += alive_bonus
-
+ 
         # --- Hip position penalty (encourage neutral hip positions) ---
         k_hip_pos = 0.1
         hip_pos_penalty = self._reward_hip_pos()
         reward -= k_hip_pos * hip_pos_penalty
-
+ 
         # --- Forward velocity reward (encourage walking) ---
         '''
         k_forward_vel = 0.5
@@ -328,7 +332,7 @@ class H1StandEnv(Env):
         if return_info:
             return reward, {
                 'Rorientation': Rorientation,
-                'Rbase_height': Rbase_height,
+                'height_penalty': height_penalty,
                 'torque_penalty': torque_penalty,
                 'foot_contact_reward': foot_contact_reward,
                 'joint_limit_penalty': joint_limit_penalty,
@@ -338,7 +342,7 @@ class H1StandEnv(Env):
                 'total_reward': reward
             }
         return reward
-
+ 
     def _get_terminated(self, obs):
         """Check termination conditions"""
         roll, pitch = obs[0], obs[1]
@@ -372,7 +376,7 @@ class H1StandEnv(Env):
         q_des_right_shoulder_roll = 0.5 * (action[16] + 1) * (self.model.jnt_range[self.joint_ids["right_shoulder_roll"]][1] - self.model.jnt_range[self.joint_ids["right_shoulder_roll"]][0]) + self.model.jnt_range[self.joint_ids["right_shoulder_roll"]][0]
         q_des_right_shoulder_yaw = 0.5 * (action[17] + 1) * (self.model.jnt_range[self.joint_ids["right_shoulder_yaw"]][1] - self.model.jnt_range[self.joint_ids["right_shoulder_yaw"]][0]) + self.model.jnt_range[self.joint_ids["right_shoulder_yaw"]][0]
         q_des_right_elbow = 0.5 * (action[18] + 1) * (self.model.jnt_range[self.joint_ids["right_elbow"]][1] - self.model.jnt_range[self.joint_ids["right_elbow"]][0]) + self.model.jnt_range[self.joint_ids["right_elbow"]][0]
-
+ 
         # PD control for each joint
         self.data.ctrl[self.actuator_ids["left_hip_yaw"]] = self.Kp["left_hip_yaw"] * (q_des_left_hip_yaw - self.data.qpos[self.joint_ids["left_hip_yaw"]]) - self.Kd["left_hip_yaw"] * self.data.qvel[self.joint_ids["left_hip_yaw"]]
         self.data.ctrl[self.actuator_ids["left_hip_roll"]] = self.Kp["left_hip_roll"] * (q_des_left_hip_roll - self.data.qpos[self.joint_ids["left_hip_roll"]]) - self.Kd["left_hip_roll"] * self.data.qvel[self.joint_ids["left_hip_roll"]]
@@ -399,3 +403,4 @@ class H1StandEnv(Env):
         terminated = self._get_terminated(obs)
         info = reward_info
         return obs, reward, terminated, False, info
+ 

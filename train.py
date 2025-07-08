@@ -15,7 +15,7 @@ model = PPO(
     policy_kwargs={
         "net_arch": [128, 128]  # Larger network for more complex state
     },
-    learning_rate=0.9e-4,
+    learning_rate=0.8e-4,
     n_steps=2048,
     batch_size=64,
     gamma=0.995,
