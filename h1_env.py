@@ -281,9 +281,9 @@ class H1StandEnv(Env):
         # k_base_height = 0.98
         hbase = torso_height
         height_penalty = 0
-        if hbase < 0.96:
+        if hbase < 0.98:
             height_penalty = -1.0 * (0.92 - hbase)
-        elif hbase > 0.98:
+        elif hbase > 1:
             height_penalty = -1.0 * (hbase - 0.94)  # Encourage not too high
         reward += height_penalty
  
@@ -315,13 +315,19 @@ class H1StandEnv(Env):
  
         # --- Alive bonus (scaled with time) ---
         alive_bonus = 0.1 * self.data.time
-        reward += alive_bonus
- 
+        reward += alive_bonus        
+        
         # --- Hip position penalty (encourage neutral hip positions) ---
-        k_hip_pos = 0.1
+        k_hip_pos = .5
         hip_pos_penalty = self._reward_hip_pos()
         reward -= k_hip_pos * hip_pos_penalty
- 
+
+        # --- Torso position penalty (encourage stable torso) ---
+        k_torso_pos = 0.2
+        torso_pos = self.data.qpos[self.joint_ids["torso"]]
+        torso_pos_penalty = k_torso_pos * (torso_pos ** 2)
+        reward -= torso_pos_penalty
+
         # --- Forward velocity reward (encourage walking) ---
         '''
         k_forward_vel = 0.5
@@ -338,6 +344,7 @@ class H1StandEnv(Env):
                 'joint_limit_penalty': joint_limit_penalty,
                 'alive_bonus': alive_bonus,
                 'hip_pos_penalty': -k_hip_pos * hip_pos_penalty,
+                'torso_pos_penalty': -torso_pos_penalty,
                 #'forward_vel_reward': forward_vel_reward,
                 'total_reward': reward
             }
