@@ -4,37 +4,28 @@ from stable_baselines3.common.callbacks import EvalCallback
 import numpy as np
 import mujoco.viewer
 import os
-import argparse
-
-parser = argparse.ArgumentParser(description="Train or continue training the H1StandEnv PPO model.")
-parser.add_argument('--from-checkpoint', type=str, default=None, help='Path to existing model checkpoint to continue training from')
-args = parser.parse_args()
 
 # Create environment
 env = H1StandEnv()
 
-if args.from_checkpoint is not None:
-    print(f"Loading model from {args.from_checkpoint}")
-    model = PPO.load(args.from_checkpoint, env=env, tensorboard_log="./h1_tensorboard/")
-else:
-    # Create PPO model with updated settings
-    model = PPO(
-        "MlpPolicy",
-        env,
-        policy_kwargs={
-            "net_arch": [128, 128]  # Larger network for more complex state
-        },
-        learning_rate=0.8e-4,
-        n_steps=2048,
-        batch_size=64,
-        gamma=0.995,
-        gae_lambda=0.95,
-        clip_range=0.2,
-        ent_coef=0.01,
-        verbose=1,
-        device="cpu",
-        tensorboard_log="./h1_tensorboard/"
-    )
+# Create PPO model with updated settings
+model = PPO(
+    "MlpPolicy",
+    env,
+    policy_kwargs={
+        "net_arch": [128, 128]  # Larger network for more complex state
+    },
+    learning_rate=0.8e-4,
+    n_steps=2048,
+    batch_size=64,
+    gamma=0.995,
+    gae_lambda=0.95,
+    clip_range=0.2,
+    ent_coef=0.01,
+    verbose=1,
+    device="cpu",
+    tensorboard_log="./h1_tensorboard/"
+)
 
 # TensorBoard logging for reward components
 os.makedirs("./h1_tensorboard/", exist_ok=True)
