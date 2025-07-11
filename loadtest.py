@@ -13,15 +13,22 @@ data = mujoco.MjData(model)
 # (You can print model.joint_names to see the order)
 data.qpos[:] = 0  # Start with all zeros
 
-# Example: set left hip pitch to 0.3, left knee to -0.6, left ankle to -0.3
-# (You must use the correct indices for your robot)
-# You can print(model.joint_names) and print(model.jnt_qposadr) to find the mapping
+# Set joint positions to match the environment's initial pose
+# Hip yaw and roll joints (set to 0 for neutral position)
+data.qpos[model.joint('left_hip_yaw').qposadr] = 0.4
+data.qpos[model.joint('left_hip_roll').qposadr] = 0.0
+data.qpos[model.joint('right_hip_yaw').qposadr] = -0.4
+data.qpos[model.joint('right_hip_roll').qposadr] = 0.0
+
+# Hip pitch, knee, and ankle positions for standing pose
 data.qpos[model.joint('left_hip_pitch').qposadr] = -.2
 data.qpos[model.joint('left_knee').qposadr] = 0.5
 data.qpos[model.joint('left_ankle').qposadr] = -.3
 data.qpos[model.joint('right_hip_pitch').qposadr] = -.2
 data.qpos[model.joint('right_knee').qposadr] = .5
 data.qpos[model.joint('right_ankle').qposadr] = -.3
+
+# Torso position
 data.qpos[model.joint('torso').qposadr] = 0.0
 
 # Forward the simulation to update the state

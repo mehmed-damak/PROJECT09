@@ -10,7 +10,7 @@ import argparse
 parser = argparse.ArgumentParser(description="Train or continue training the H1StandEnv PPO model.")
 parser.add_argument('--from-checkpoint', type=str, default=None, help='Path to existing model checkpoint to continue training from')
 args = parser.parse_args()
-
+# example:  python train.py --from-checkpoint h1_stand_10000.zip 
 # Create environment
 env = H1StandEnv()
 

@@ -4,8 +4,9 @@ import mujoco.viewer
 import time
 
 # Load best model
-model = PPO.load("h1_stand_200000")  # Try different checkpoints
-
+model = PPO.load("h1_stand_PPO_1930000")  # Try different checkpoints
+#1510000
+#200000
 # Create environment
 env = H1StandEnv()
 

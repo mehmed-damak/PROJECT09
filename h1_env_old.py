@@ -148,7 +148,13 @@ class H1StandEnv(Env):
     def reset(self, seed=None, options=None):
         mujoco.mj_resetData(self.model, self.data)
         
-        # Revert to original working initialization
+        # Set hip yaw and roll positions
+        self.data.qpos[7] = 0.4   # Left hip yaw
+        #self.data.qpos[8] = 0.0    #Left hip roll
+        self.data.qpos[12] = -0.4  # Right hip yaw
+       # self.data.qpos[13] = 0.0  # Right hip roll
+        
+        # Set leg positions
         # Left leg
         self.data.qpos[9] = -0.2   # Left hip pitch
         self.data.qpos[10] = 0.5 # Left knee 0.6 orginally
@@ -168,6 +174,12 @@ class H1StandEnv(Env):
         self.data.qpos[15] = -0.6  # Right knee
         self.data.qpos[16] = -0.3  # Right ankle
         
+
+        data.qpos[model.joint('left_hip_yaw').qposadr] = 0.4
+        data.qpos[model.joint('left_hip_roll').qposadr] = 0.0
+        data.qpos[model.joint('right_hip_yaw').qposadr] = -0.4
+        data.qpos[model.joint('right_hip_roll').qposadr] = 0.0
+
         data.qpos[model.joint('left_hip_pitch').qposadr] = -.2
         data.qpos[model.joint('left_knee').qposadr] = 0.5
         data.qpos[model.joint('left_ankle').qposadr] = -.3
@@ -254,13 +266,14 @@ class H1StandEnv(Env):
     def _reward_hip_pos(self):
         """Calculate hip position penalty - penalizes deviation from neutral hip positions"""
         # Get hip yaw and hip roll positions for both legs
-        left_hip_yaw = self.data.qpos[self.joint_ids["left_hip_yaw"]]
-        left_hip_roll = self.data.qpos[self.joint_ids["left_hip_roll"]]
-        right_hip_yaw = self.data.qpos[self.joint_ids["right_hip_yaw"]]
-        right_hip_roll = self.data.qpos[self.joint_ids["right_hip_roll"]]
+        left_hip_yaw = self.data.qpos[7]   # Left hip yaw
+        left_hip_roll = self.data.qpos[8]  # Left hip roll
+        right_hip_yaw = self.data.qpos[12] # Right hip yaw
+        right_hip_roll = self.data.qpos[13] # Right hip roll
+        torso_pos = self.data.qpos[6]  # Torso position
         
         # Calculate squared positions (penalty for deviation from 0)
-        hip_positions = np.array([left_hip_yaw, left_hip_roll, right_hip_yaw, right_hip_roll])
+        hip_positions = np.array([left_hip_yaw, left_hip_roll, right_hip_yaw, right_hip_roll, torso_pos])
         return np.sum(np.square(hip_positions))
     
     def _reference_position_penalty(self):
@@ -343,18 +356,35 @@ class H1StandEnv(Env):
         reward += joint_limit_penalty
  
         # --- Alive bonus (scaled with time) ---
-        alive_bonus = 0.1 * self.data.time
+        alive_bonus = 1.5
         reward += alive_bonus
  
         # --- Hip position penalty (encourage neutral hip positions) ---
-        k_hip_pos = 0.1
+        k_hip_pos = 10
         hip_pos_penalty = self._reward_hip_pos()
         reward -= k_hip_pos * hip_pos_penalty
 
-        # --- Reference position penalty (encourage staying near initial pose) ---
-        k_reference = 0.5  # Penalty coefficient for deviating from reference positions
-        reference_penalty = -k_reference * self._reference_position_penalty()
-        reward += reference_penalty
+        
+
+        # --- Upper body pose maintenance reward ---
+        k_upper_body = 0.3  # Reward coefficient for keeping upper body in initial pose
+        upper_body_joints = ["torso", "left_shoulder_pitch", "left_shoulder_roll", 
+                           "left_shoulder_yaw", "left_elbow", "right_shoulder_pitch", 
+                           "right_shoulder_roll", "right_shoulder_yaw", "right_elbow"]
+        
+        upper_body_deviation = 0.0
+        for joint_name in upper_body_joints:
+            joint_id = self.joint_ids[joint_name]
+            current_pos = self.data.qpos[joint_id]
+            reference_pos = self.reference_positions[joint_name]
+            # Squared difference penalty
+            deviation = (current_pos - reference_pos) ** 2
+            upper_body_deviation += deviation
+
+        
+        upper_body_reward = k_upper_body * np.exp(-2.0 * upper_body_deviation)  # Exponential reward for staying close
+        reward += upper_body_reward
+        
  
         # --- Forward velocity reward (encourage walking) ---
         '''
@@ -372,7 +402,7 @@ class H1StandEnv(Env):
                 'joint_limit_penalty': joint_limit_penalty,
                 'alive_bonus': alive_bonus,
                 'hip_pos_penalty': -k_hip_pos * hip_pos_penalty,
-                'reference_penalty': reference_penalty,
+                'upper_body_reward': upper_body_reward,
                 #'forward_vel_reward': forward_vel_reward,
                 'total_reward': reward
             }
