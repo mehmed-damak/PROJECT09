@@ -25,13 +25,13 @@ else:
         policy_kwargs={
             "net_arch": [128, 128]  # Larger network for more complex state
         },
-        learning_rate=0.8e-4,
+        learning_rate=1e-4,
         n_steps=2048,
         batch_size=64,
         gamma=0.995,
         gae_lambda=0.95,
         clip_range=0.2,
-        ent_coef=0.01,
+        ent_coef=0.01,# was 0.05, i mean 0.01
         verbose=1,
         device="cpu",
         tensorboard_log="./h1_tensorboard/"
