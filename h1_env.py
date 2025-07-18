@@ -199,14 +199,31 @@ class H1StandEnv(Env):
         # Check for foot contacts with ground
         for contact_id in range(self.data.ncon):
             contact = self.data.contact[contact_id]
-            geom1_name = self.model.geom(contact.geom1).name if contact.geom1 < self.model.ngeom else ""
-            geom2_name = self.model.geom(contact.geom2).name if contact.geom2 < self.model.ngeom else ""
             
-            # Check if contact involves feet (adjust names based on your model)
-            if any(foot_part in geom1_name or foot_part in geom2_name for foot_part in ["left_ankle", "left_foot"]):
-                left_foot_contact = True
-            if any(foot_part in geom1_name or foot_part in geom2_name for foot_part in ["right_ankle", "right_foot"]):
-                right_foot_contact = True
+            # Get body names for both geometries in contact
+            geom1_body_id = self.model.geom_bodyid[contact.geom1]
+            geom2_body_id = self.model.geom_bodyid[contact.geom2]
+            geom1_body_name = self.model.body(geom1_body_id).name
+            geom2_body_name = self.model.body(geom2_body_id).name
+            
+            # Check if contact involves floor and foot
+            ground_contact = False
+            foot_body = None
+            
+            # Check if one of the bodies is the ground/floor
+            if geom1_body_name == "world" or "floor" in self.model.geom(contact.geom1).name:
+                ground_contact = True
+                foot_body = geom2_body_name
+            elif geom2_body_name == "world" or "floor" in self.model.geom(contact.geom2).name:
+                ground_contact = True
+                foot_body = geom1_body_name
+            
+            # If it's a ground contact, check which foot
+            if ground_contact and foot_body:
+                if "left_ankle_link" in foot_body:
+                    left_foot_contact = True
+                elif "right_ankle_link" in foot_body:
+                    right_foot_contact = True
         
         # Reward for foot contact
         if left_foot_contact and right_foot_contact:
