@@ -200,8 +200,6 @@ class H1StandEnv(Env):
         joint_velocities = np.array([self.data.qvel[joint_id] for joint_id in self.joint_ids.values()])
         joint_velocity_penalty = -0.1 * np.sum(np.square(joint_velocities))
         
-        # 5. Energy efficiency (penalize excessive torques)
-        torque_penalty = -0.0001 * np.sum(np.square(self.data.ctrl))
         
         # 6. Center of mass stability (penalize lateral movement)
         com_x_penalty = -2.0 * (torso_pos[0]**2)  # Penalize x displacement
@@ -238,11 +236,7 @@ class H1StandEnv(Env):
             foot_height_penalty -= 5.0 * (left_ankle_height - ground_level - 0.02)**2  # Stronger penalty
         if right_ankle_height > ground_level + 0.02:  # Extra strict on right foot
             foot_height_penalty -= 5.0 * (right_ankle_height - ground_level - 0.02)**2
-            
-        # Additional right leg specific penalty (since it's the problem leg)
-        right_leg_lift_penalty = 0
-        if right_ankle_height > ground_level + 0.01:  # VERY strict on right leg
-            right_leg_lift_penalty -= 8.0 * (right_ankle_height - ground_level - 0.01)**3  # Cubic penalty for right leg
+
         
         # 9. Enhanced foot contact reward (require BOTH feet on ground for standing)
         left_foot_contact = False
@@ -270,10 +264,6 @@ class H1StandEnv(Env):
         else:
             foot_contact_reward = -5.0  # VERY strong penalty for lifting both feet
             
-        # Additional specific right foot contact monitoring
-        right_foot_specific_penalty = 0
-        if not right_foot_contact:
-            right_foot_specific_penalty -= 3.0  # Extra penalty specifically for right foot lifting
         
         # 10. Enhanced leg symmetry reward (encourage symmetric stance)
         left_hip_roll = self.data.qpos[self.joint_ids["left_hip_roll"]]
@@ -364,15 +354,12 @@ class H1StandEnv(Env):
             height_reward +               # 2.0 max - second most important  
             angular_velocity_penalty +    # stability
             joint_velocity_penalty +     # smoothness
-            torque_penalty +             # efficiency
             com_x_penalty +              # lateral stability
             com_y_penalty +              # lateral stability
             joint_position_penalty +     # general pose regularization
             hip_roll_penalty +           # SUPER STRONG penalty for hip roll deviation
             foot_height_penalty +        # penalty for lifting feet
-            right_leg_lift_penalty +     # EXTRA penalty for right leg lifting
             foot_contact_reward +        # strong requirement for both feet down
-            right_foot_specific_penalty + # EXTRA right foot penalty
             leg_symmetry_reward +        # encourage symmetric stance
             right_leg_stability +        # EXTRA right leg stability reward
             alive_bonus +                # survival
@@ -385,15 +372,12 @@ class H1StandEnv(Env):
                 'height_reward': height_reward,
                 'angular_velocity_penalty': angular_velocity_penalty,
                 'joint_velocity_penalty': joint_velocity_penalty,
-                'torque_penalty': torque_penalty,
                 'com_x_penalty': com_x_penalty,
                 'com_y_penalty': com_y_penalty,
                 'joint_position_penalty': joint_position_penalty,
                 'hip_roll_penalty': hip_roll_penalty,
                 'foot_height_penalty': foot_height_penalty,
-                'right_leg_lift_penalty': right_leg_lift_penalty,
                 'foot_contact_reward': foot_contact_reward,
-                'right_foot_specific_penalty': right_foot_specific_penalty,
                 'leg_symmetry_reward': leg_symmetry_reward,
                 'right_leg_stability': right_leg_stability,
                 'hip_roll_symmetry': hip_roll_symmetry,

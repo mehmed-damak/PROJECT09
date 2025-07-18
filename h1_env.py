@@ -181,230 +181,64 @@ class H1StandEnv(Env):
         
         # 1. Upright orientation reward (most important for standing)
         # Use exponential reward that peaks at zero orientation
-        orientation_reward = 3.0 * np.exp(-5.0 * (roll**2 + pitch**2))
+        orientation_reward = -3.0 * np.exp((abs(roll) + abs(pitch)))
         
-        # 2. Height reward with smooth transitions
+        # 2. Height reward with exponential decay
         target_height = 0.98
         height_error = abs(torso_height - target_height)
-        if height_error < 0.03:  # Very close to target
-            height_reward = 2.0 * (1.0 - height_error / 0.03)
-        elif height_error < 0.1:  # Reasonably close
-            height_reward = 1.0 * (1.0 - (height_error - 0.03) / 0.07)
-        else:  # Too far from target
-            height_reward = -0.5 * height_error
+        # Exponential reward that peaks at target height and decays smoothly
+        height_reward = 2.0 * np.exp(-20.0 * height_error**2)
+        # Additional penalty for being too far below target (falling)
+        if torso_height < 0.8:
+            height_reward -= 1.0 * (0.8 - torso_height)
         
-        # 3. Stability reward (low angular velocities)
-        angular_velocity_penalty = -0.5 * np.sum(np.square(ang_vel))
-        
-        # 4. Joint velocity smoothness (encourage smooth movements)
-        joint_velocities = np.array([self.data.qvel[joint_id] for joint_id in self.joint_ids.values()])
-        joint_velocity_penalty = -0.1 * np.sum(np.square(joint_velocities))
-        
-        # 5. Energy efficiency (penalize excessive torques)
-        torque_penalty = -0.0001 * np.sum(np.square(self.data.ctrl))
-        
-        # 6. Center of mass stability (penalize lateral movement)
-        com_x_penalty = -2.0 * (torso_pos[0]**2)  # Penalize x displacement
-        com_y_penalty = -2.0 * (torso_pos[1]**2)  # Penalize y displacement
-        
-        # 7. Joint position regularization with EXTRA strict focus on hip rolls
-        joint_position_penalty = 0
-        hip_roll_penalty = 0
-        
-        for joint_name, joint_id in self.joint_ids.items():
-            current_pos = self.data.qpos[joint_id]
-            reference_pos = self.reference_positions[joint_name]
-            deviation = abs(current_pos - reference_pos)
-            
-            # EXTREMELY strict handling for hip roll joints (prevent ANY leg lifting)
-            if "hip_roll" in joint_name:
-                if deviation > 0.05:  # Even stricter - only 0.05 rad allowed
-                    hip_roll_penalty -= 10.0 * (deviation - 0.05)**2  # DOUBLE the penalty
-                # Additional penalty for any movement away from reference
-                hip_roll_penalty -= 2.0 * deviation**2  # Constant penalty for any deviation
-            else:
-                # Allow some deviation for other joints
-                if deviation > 0.2:
-                    joint_position_penalty -= 0.3 * (deviation - 0.2)**2
-        
-        # 8. Enhanced foot height penalty (prevent ANY lifting of feet)
-        left_ankle_height = self.data.xpos[self.model.body("left_ankle_link").id][2]
-        right_ankle_height = self.data.xpos[self.model.body("right_ankle_link").id][2]
-        ground_level = 0.05  # Expected foot height when on ground
-        
-        foot_height_penalty = 0
-        # Much stricter foot height monitoring
-        if left_ankle_height > ground_level + 0.02:  # Only 2cm tolerance instead of 5cm
-            foot_height_penalty -= 5.0 * (left_ankle_height - ground_level - 0.02)**2  # Stronger penalty
-        if right_ankle_height > ground_level + 0.02:  # Extra strict on right foot
-            foot_height_penalty -= 5.0 * (right_ankle_height - ground_level - 0.02)**2
-            
-        # Additional right leg specific penalty (since it's the problem leg)
-        right_leg_lift_penalty = 0
-        if right_ankle_height > ground_level + 0.01:  # VERY strict on right leg
-            right_leg_lift_penalty -= 8.0 * (right_ankle_height - ground_level - 0.01)**3  # Cubic penalty for right leg
-        
-        # 9. Enhanced foot contact reward (require BOTH feet on ground for standing)
+        # 3. Foot contact reward (encourage both feet on ground)
         left_foot_contact = False
         right_foot_contact = False
         
-        # Check for foot contacts
+        # Check for foot contacts with ground
         for contact_id in range(self.data.ncon):
             contact = self.data.contact[contact_id]
-            geom1_name = self.model.geom(contact.geom1).name
-            geom2_name = self.model.geom(contact.geom2).name
+            geom1_name = self.model.geom(contact.geom1).name if contact.geom1 < self.model.ngeom else ""
+            geom2_name = self.model.geom(contact.geom2).name if contact.geom2 < self.model.ngeom else ""
             
-            # Check if contact involves feet (adjust names as needed for your model)
-            if "left_ankle" in geom1_name or "left_ankle" in geom2_name or \
-               "left_foot" in geom1_name or "left_foot" in geom2_name:
+            # Check if contact involves feet (adjust names based on your model)
+            if any(foot_part in geom1_name or foot_part in geom2_name for foot_part in ["left_ankle", "left_foot"]):
                 left_foot_contact = True
-            if "right_ankle" in geom1_name or "right_ankle" in geom2_name or \
-               "right_foot" in geom1_name or "right_foot" in geom2_name:
+            if any(foot_part in geom1_name or foot_part in geom2_name for foot_part in ["right_ankle", "right_foot"]):
                 right_foot_contact = True
         
-        # Require both feet on ground for standing - EXTREMELY strong penalty if either foot is lifted
+        # Reward for foot contact
         if left_foot_contact and right_foot_contact:
-            foot_contact_reward = 3.0  # Even stronger reward for both feet down
+            foot_contact_reward = 1.0  # Both feet on ground - good for standing
         elif left_foot_contact or right_foot_contact:
-            foot_contact_reward = -2.0  # Stronger penalty for lifting one foot
+            foot_contact_reward = 0.2  # One foot on ground - partial reward
         else:
-            foot_contact_reward = -5.0  # VERY strong penalty for lifting both feet
-            
-        # Additional specific right foot contact monitoring
-        right_foot_specific_penalty = 0
-        if not right_foot_contact:
-            right_foot_specific_penalty -= 3.0  # Extra penalty specifically for right foot lifting
+            foot_contact_reward = -1.0  # No feet on ground - bad for standing
         
-        # 10. Enhanced leg symmetry reward (encourage symmetric stance)
-        left_hip_roll = self.data.qpos[self.joint_ids["left_hip_roll"]]
-        right_hip_roll = self.data.qpos[self.joint_ids["right_hip_roll"]]
-        left_hip_pitch = self.data.qpos[self.joint_ids["left_hip_pitch"]]
-        right_hip_pitch = self.data.qpos[self.joint_ids["right_hip_pitch"]]
-        left_hip_yaw = self.data.qpos[self.joint_ids["left_hip_yaw"]]
-        right_hip_yaw = self.data.qpos[self.joint_ids["right_hip_yaw"]]
-        left_knee = self.data.qpos[self.joint_ids["left_knee"]]
-        right_knee = self.data.qpos[self.joint_ids["right_knee"]]
-        left_ankle = self.data.qpos[self.joint_ids["left_ankle"]]
-        right_ankle = self.data.qpos[self.joint_ids["right_ankle"]]
-        
-        # Hip roll symmetry: should be mirrored (left positive, right negative or vice versa)
-        # But for standing, they should both be close to zero
-        ideal_hip_roll_diff = 0.0  # Both hips should be at reference position
-        hip_roll_symmetry_error = abs((left_hip_roll + right_hip_roll) / 2.0)  # Average should be zero
-        hip_roll_symmetry = 2.0 * np.exp(-10.0 * hip_roll_symmetry_error**2)  # Strong reward for symmetric
-        
-        # Hip yaw symmetry: for standing, both should be close to zero (feet pointing forward)
-        hip_yaw_symmetry_error = abs((left_hip_yaw + right_hip_yaw) / 2.0)  # Average should be zero
-        hip_yaw_symmetry = 1.5 * np.exp(-12.0 * hip_yaw_symmetry_error**2)  # Reward for feet pointing forward
-        
-        # Hip yaw alignment: also reward when both hips have similar yaw values (parallel feet)
-        hip_yaw_diff = abs(left_hip_yaw - right_hip_yaw)
-        hip_yaw_alignment = 1.0 * np.exp(-8.0 * hip_yaw_diff**2)  # Reward for parallel feet
-        
-        # Hip pitch symmetry: should be nearly identical for standing
-        hip_pitch_diff = abs(left_hip_pitch - right_hip_pitch)
-        hip_pitch_symmetry = 1.5 * np.exp(-15.0 * hip_pitch_diff**2)  # Reward similar angles
-        
-        # Knee symmetry: should be nearly identical
-        knee_diff = abs(left_knee - right_knee)
-        knee_symmetry = 1.5 * np.exp(-15.0 * knee_diff**2)  # Reward similar angles
-        
-        # Ankle symmetry: should be nearly identical
-        ankle_diff = abs(left_ankle - right_ankle)
-        ankle_symmetry = 1.0 * np.exp(-15.0 * ankle_diff**2)  # Reward similar angles
-        
-        # Leg posture reward: reward for keeping legs in good standing position
-        # Penalize extreme deviations from reference pose
-        left_leg_deviation = (
-            abs(left_hip_roll - self.reference_positions["left_hip_roll"]) +
-            abs(left_hip_pitch - self.reference_positions["left_hip_pitch"]) +
-            abs(left_knee - self.reference_positions["left_knee"])
-        )
-        right_leg_deviation = (
-            abs(right_hip_roll - self.reference_positions["right_hip_roll"]) +
-            abs(right_hip_pitch - self.reference_positions["right_hip_pitch"]) +
-            abs(right_knee - self.reference_positions["right_knee"])
-        )
-        
-        leg_posture_reward = 1.0 * np.exp(-2.0 * (left_leg_deviation + right_leg_deviation))
-        
-        # Combined symmetry reward
-        leg_symmetry_reward = (
-            hip_roll_symmetry + 
-            hip_yaw_symmetry +
-            hip_yaw_alignment +
-            hip_pitch_symmetry + 
-            knee_symmetry + 
-            ankle_symmetry +
-            leg_posture_reward
-        )
-        
-        # 11. Specific right leg stability reward (extra encouragement for right leg to stay down)
-        right_leg_stability = 0
-        right_hip_roll_current = self.data.qpos[self.joint_ids["right_hip_roll"]]
-        right_hip_roll_ref = self.reference_positions["right_hip_roll"]
-        right_hip_roll_dev = abs(right_hip_roll_current - right_hip_roll_ref)
-        
-        # Give extra reward for keeping right hip roll very close to reference
-        if right_hip_roll_dev < 0.02:  # Very tight tolerance
-            right_leg_stability = 2.0 * (1.0 - right_hip_roll_dev / 0.02)
-        else:
-            right_leg_stability = -3.0 * right_hip_roll_dev  # Strong penalty for deviation
-        
-        # 12. Base bonus for staying alive and not terminating
+        # 4. Stability reward (low angular velocities)
+        angular_velocity_penalty = -0.5 * np.sum(np.square(ang_vel))
+    
+        # 6. Base bonus for staying alive and not terminating
         alive_bonus = 0.5
         
-        # 13. Progressive height bonus (reward improvement over time)
-        min_viable_height = 0.7
-        height_progress_bonus = max(0, (torso_height - min_viable_height) / (target_height - min_viable_height))
         
         # Combine all rewards with appropriate weights
         total_reward = (
             orientation_reward +           # 3.0 max - most important
             height_reward +               # 2.0 max - second most important  
+            foot_contact_reward +         # 1.0 max - encourage foot contact
             angular_velocity_penalty +    # stability
-            joint_velocity_penalty +     # smoothness
-            torque_penalty +             # efficiency
-            com_x_penalty +              # lateral stability
-            com_y_penalty +              # lateral stability
-            joint_position_penalty +     # general pose regularization
-            hip_roll_penalty +           # SUPER STRONG penalty for hip roll deviation
-            foot_height_penalty +        # penalty for lifting feet
-            right_leg_lift_penalty +     # EXTRA penalty for right leg lifting
-            foot_contact_reward +        # strong requirement for both feet down
-            right_foot_specific_penalty + # EXTRA right foot penalty
-            leg_symmetry_reward +        # encourage symmetric stance
-            right_leg_stability +        # EXTRA right leg stability reward
-            alive_bonus +                # survival
-            height_progress_bonus        # progressive improvement
+            alive_bonus                # survival
         )
 
         if return_info:
             return total_reward, {
                 'orientation_reward': orientation_reward,
                 'height_reward': height_reward,
-                'angular_velocity_penalty': angular_velocity_penalty,
-                'joint_velocity_penalty': joint_velocity_penalty,
-                'torque_penalty': torque_penalty,
-                'com_x_penalty': com_x_penalty,
-                'com_y_penalty': com_y_penalty,
-                'joint_position_penalty': joint_position_penalty,
-                'hip_roll_penalty': hip_roll_penalty,
-                'foot_height_penalty': foot_height_penalty,
-                'right_leg_lift_penalty': right_leg_lift_penalty,
                 'foot_contact_reward': foot_contact_reward,
-                'right_foot_specific_penalty': right_foot_specific_penalty,
-                'leg_symmetry_reward': leg_symmetry_reward,
-                'right_leg_stability': right_leg_stability,
-                'hip_roll_symmetry': hip_roll_symmetry,
-                'hip_yaw_symmetry': hip_yaw_symmetry,
-                'hip_yaw_alignment': hip_yaw_alignment,
-                'hip_pitch_symmetry': hip_pitch_symmetry,
-                'knee_symmetry': knee_symmetry,
-                'ankle_symmetry': ankle_symmetry,
-                'leg_posture_reward': leg_posture_reward,
+                'angular_velocity_penalty': angular_velocity_penalty,
                 'alive_bonus': alive_bonus,
-                'height_progress_bonus': height_progress_bonus,
                 'total_reward': total_reward
             }
         return total_reward
@@ -425,10 +259,10 @@ class H1StandEnv(Env):
         max_hip_deviation = 0.5  # Maximum allowed deviation in radians
         
         fallen = abs(roll) > 0.5 or abs(pitch) > 0.5 or torso_height < 0.5
-        hip_deviation_exceeded = left_hip_deviation > max_hip_deviation or right_hip_deviation > max_hip_deviation
-        timeout = self.data.time > 50
+        #hip_deviation_exceeded = left_hip_deviation > max_hip_deviation or right_hip_deviation > max_hip_deviation
+        timeout = self.data.time > 75
         
-        return fallen or hip_deviation_exceeded or timeout
+        return fallen or timeout
     def step(self, action):
         # PD control: interpret action as desired position in [-1, 1] scaled to joint range
         # Explicit, line-by-line for all 10 leg actuators/joints
