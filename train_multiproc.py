@@ -211,7 +211,7 @@ def main():
     
     # ==================== CONFIGURATION ====================
     NUM_ENVS = 16              # Number of parallel environments
-    TOTAL_TIMESTEPS = 5_000_000  # Total training timesteps
+    TOTAL_TIMESTEPS = 1000000  # Total training timesteps
     LEARNING_RATE = 1e-4       # Learning rate
     SEED = 42                  # Random seed
     MODEL_NAME = "h1_stand_multiproc_final"  # Final model name (matches your test.py)
