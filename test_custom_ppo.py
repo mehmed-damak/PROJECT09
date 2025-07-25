@@ -4,7 +4,7 @@ import time
 import sys
 import mujoco.viewer
 
-sys.path.insert(0, '/home/mehmed-damak/ProjectH1/LearningHumanoidWalking')
+sys.path.insert(0, '/home/mehmed-damak/PROJECT09/LearningHumanoidWalking')
 
 print("Testing custom PPO models...")
 

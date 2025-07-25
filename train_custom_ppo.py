@@ -7,17 +7,17 @@ import os
 from pathlib import Path
 
 # Add LearningHumanoidWalking to path for all processes
-sys.path.insert(0, '/home/mehmed-damak/ProjectH1/LearningHumanoidWalking')
+sys.path.insert(0, '/home/mehmed-damak/PROJECT09/LearningHumanoidWalking')
 
 # Set PYTHONPATH for Ray workers
-os.environ['PYTHONPATH'] = '/home/mehmed-damak/ProjectH1/LearningHumanoidWalking:' + os.environ.get('PYTHONPATH', '')
+os.environ['PYTHONPATH'] = '/home/mehmed-damak/PROJECT09/LearningHumanoidWalking:' + os.environ.get('PYTHONPATH', '')
 
 from rl.algos.ppo import PPO
 import argparse
 import ray
 from functools import partial
 from h1_env_wrapper import H1EnvWrapper
-
+#python train_custom_ppo.py ---n-itr 100000 --learning-rate 1.5e-4 --max-traj-len 500 --num-procs 16
 def train_with_custom_ppo():
     """Train using LearningHumanoidWalking's PPO implementation"""
     
