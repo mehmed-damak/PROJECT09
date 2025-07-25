@@ -168,7 +168,7 @@ class H1StandEnv(Env):
 
  
     def _get_reward(self, obs, return_info=False):
-        """Reward for walking with balance and stability."""
+        """Reward for standing upright and stable with improved learning signal."""
         
         # Extract observations
         roll = obs[0]
@@ -179,12 +179,7 @@ class H1StandEnv(Env):
         torso_height = self.data.xpos[self.torso_body.id][2]
         torso_pos = self.data.xpos[self.torso_body.id]
         
-        # Get current velocity
-        torso_vel = self.data.qvel[0:3]  # linear velocity in x, y, z
-        forward_vel = torso_vel[0]  # velocity in x direction (forward)
-        lateral_vel = abs(torso_vel[1])  # absolute velocity in y direction (sideways)
-        
-        # 1. Upright orientation reward (most important for standing/walking)
+        # 1. Upright orientation reward (most important for standing)
         # Use exponential reward that peaks at zero orientation
         orientation_reward = -3.0 * np.exp((abs(roll) + abs(pitch)))
         
@@ -197,23 +192,7 @@ class H1StandEnv(Env):
         if torso_height < 0.8:
             height_reward -= 1.0 * (0.8 - torso_height)
         
-        # 3. Forward velocity reward (new for walking)
-        target_forward_speed = 1.0  # m/s
-        # Reward forward movement, with optimal speed around 1.0 m/s
-        if forward_vel > 0:
-            # Gaussian reward centered at target speed
-            forward_reward = 3.0 * np.exp(-0.5 * ((forward_vel - target_forward_speed) ** 2) / (0.5 ** 2))
-        else:
-            # Penalty for moving backward
-            forward_reward = -1.0 * abs(forward_vel)
-        
-        # 4. Lateral stability reward (discourage sideways movement)
-        lateral_penalty = -2.0 * lateral_vel
-        
-        # 4. Lateral stability reward (discourage sideways movement)
-        lateral_penalty = -2.0 * lateral_vel
-        
-        # 5. Foot contact reward with walking adaptation
+        # 3. Foot contact reward (encourage both feet on ground)
         left_foot_contact = False
         right_foot_contact = False
         
@@ -246,90 +225,38 @@ class H1StandEnv(Env):
                 elif "right_ankle_link" in foot_body:
                     right_foot_contact = True
         
-        # Update foot air time tracking
-        dt = self.data.time - self.last_time
-        self.last_time = self.data.time
-        
-        # Track air time for gait analysis
-        if not left_foot_contact:
-            self.feet_air_time[0] += dt
-        else:
-            self.feet_air_time[0] = 0.0
-            
-        if not right_foot_contact:
-            self.feet_air_time[1] += dt
-        else:
-            self.feet_air_time[1] = 0.0
-        
-        # Foot contact reward adapted for walking
+        # Reward for foot contact
         if left_foot_contact and right_foot_contact:
-            # Both feet on ground - good for standing, but not ideal for walking
-            foot_contact_reward = 0.5 if forward_vel < 0.1 else 0.1
+            foot_contact_reward = 1.0  # Both feet on ground - good for standing
         elif left_foot_contact or right_foot_contact:
-            # One foot on ground - good for walking
-            foot_contact_reward = 1.0
+            foot_contact_reward = 0.2  # One foot on ground - partial reward
         else:
-            # No feet on ground - bad unless it's a brief flight phase
-            max_air_time = max(self.feet_air_time)
-            if max_air_time < 0.1:  # Brief flight phase is okay
-                foot_contact_reward = 0.0
-            else:
-                foot_contact_reward = -2.0  # Penalty for long air time
+            foot_contact_reward = -1.0  # No feet on ground - bad for standing
         
-        # 6. Gait reward (encourage alternating foot contacts)
-        gait_reward = 0.0
-        if len(self.prev_feet_contact) == 2:
-            # Reward transitions from one foot to the other
-            current_contacts = [left_foot_contact, right_foot_contact]
-            if (self.prev_feet_contact[0] and not self.prev_feet_contact[1] and 
-                not current_contacts[0] and current_contacts[1]):
-                gait_reward = 0.5  # Left to right transition
-            elif (not self.prev_feet_contact[0] and self.prev_feet_contact[1] and 
-                  current_contacts[0] and not current_contacts[1]):
-                gait_reward = 0.5  # Right to left transition
-        
-        self.prev_feet_contact = [left_foot_contact, right_foot_contact]
-        
-        # 7. Stability reward (low angular velocities but allow some for walking)
-        angular_velocity_penalty = -0.3 * np.sum(np.square(ang_vel))
-        
-        # 8. Energy efficiency reward (discourage excessive joint movements)
-        joint_vel_penalty = -0.1 * np.sum(np.square(obs[14:24]))  # joint velocities
-        
-        # 9. Base bonus for staying alive and not terminating
+        # 4. Stability reward (low angular velocities)
+        angular_velocity_penalty = -0.5 * np.sum(np.square(ang_vel))
+    
+        # 6. Base bonus for staying alive and not terminating
         alive_bonus = 0.5
         
-        # 9. Base bonus for staying alive and not terminating
-        alive_bonus = 0.5
         
         # Combine all rewards with appropriate weights
         total_reward = (
             orientation_reward +           # 3.0 max - most important
             height_reward +               # 2.0 max - second most important  
-            forward_reward +              # 3.0 max - encourage forward movement
-            lateral_penalty +             # discourage sideways drift
-            foot_contact_reward +         # 1.0 max - encourage proper foot contact
-            gait_reward +                 # 0.5 max - encourage gait patterns
+            foot_contact_reward +         # 1.0 max - encourage foot contact
             angular_velocity_penalty +    # stability
-            joint_vel_penalty +           # energy efficiency
-            alive_bonus                   # survival
+            alive_bonus                # survival
         )
 
         if return_info:
             return total_reward, {
                 'orientation_reward': orientation_reward,
                 'height_reward': height_reward,
-                'forward_reward': forward_reward,
-                'lateral_penalty': lateral_penalty,
                 'foot_contact_reward': foot_contact_reward,
-                'gait_reward': gait_reward,
                 'angular_velocity_penalty': angular_velocity_penalty,
-                'joint_vel_penalty': joint_vel_penalty,
                 'alive_bonus': alive_bonus,
-                'total_reward': total_reward,
-                'forward_vel': forward_vel,
-                'left_foot_contact': left_foot_contact,
-                'right_foot_contact': right_foot_contact
+                'total_reward': total_reward
             }
         return total_reward
  
