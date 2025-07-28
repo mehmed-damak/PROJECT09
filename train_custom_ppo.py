@@ -17,25 +17,25 @@ import argparse
 import ray
 from functools import partial
 from h1_env_wrapper import H1EnvWrapper
-#python train_custom_ppo.py ---n-itr 100000 --learning-rate 1.5e-4 --max-traj-len 500 --num-procs 16
+#python train_custom_ppo.py --n-itr 100000 --lr 1.5e-4 --max-traj-len 1000 --num-procs 8
 def train_with_custom_ppo():
     """Train using LearningHumanoidWalking's PPO implementation"""
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--logdir", default=Path("./h1_custom_ppo_logs"), type=Path)
-    parser.add_argument("--n-itr", type=int, default=1000, help="Number of training iterations")
-    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
+    parser.add_argument("--n-itr", type=int, default=10000, help="Number of training iterations")
+    parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate")
     parser.add_argument("--eps", type=float, default=1e-5, help="Adam epsilon")
     parser.add_argument("--lam", type=float, default=0.95, help="GAE lambda")
     parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor")
-    parser.add_argument("--std-dev", type=float, default=0.223, help="Action noise std")
+    parser.add_argument("--std-dev", type=float, default=0.1, help="Action noise std")
     parser.add_argument("--learn-std", action="store_true", help="Learn action noise")
-    parser.add_argument("--entropy-coeff", type=float, default=0.0, help="Entropy coefficient")
+    parser.add_argument("--entropy-coeff", type=float, default=0.01, help="Entropy coefficient")
     parser.add_argument("--clip", type=float, default=0.2, help="PPO clip parameter")
     parser.add_argument("--minibatch-size", type=int, default=64, help="Minibatch size")
     parser.add_argument("--epochs", type=int, default=3, help="Optimization epochs")
     parser.add_argument("--use-gae", type=bool, default=True, help="Use GAE")
-    parser.add_argument("--num-procs", type=int, default=4, help="Number of parallel processes")
+    parser.add_argument("--num-procs", type=int, default=8, help="Number of parallel processes")
     parser.add_argument("--max-grad-norm", type=float, default=0.05, help="Gradient clipping")
     parser.add_argument("--max-traj-len", type=int, default=1000, help="Max episode length")
     parser.add_argument("--eval-freq", type=int, default=50, help="Evaluation frequency")

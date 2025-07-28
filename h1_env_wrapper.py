@@ -7,14 +7,14 @@ import numpy as np
 import torch
 
 # Add path for Ray workers
-sys.path.insert(0, '/home/mehmed-damak/ProjectH1/LearningHumanoidWalking')
-os.environ['PYTHONPATH'] = '/home/mehmed-damak/ProjectH1/LearningHumanoidWalking:' + os.environ.get('PYTHONPATH', '')
+sys.path.insert(0, '/home/mehmed-damak/PROJECT09/LearningHumanoidWalking')
+os.environ['PYTHONPATH'] = '/home/mehmed-damak/PROJECT09/LearningHumanoidWalking:' + os.environ.get('PYTHONPATH', '')
 
-from h1_env import H1StandEnv
+from h1_env import H1WalkEnv  # Updated to use walking environment
 
 class H1EnvWrapper:
     def __init__(self, path_to_yaml=None):
-        self.env = H1StandEnv()
+        self.env = H1WalkEnv()
         
         # Required for LearningHumanoidWalking PPO compatibility
         self.observation_space = self.env.observation_space

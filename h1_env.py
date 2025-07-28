@@ -1,6 +1,10 @@
 import mujoco
 import numpy as np
+import sys
 from gymnasium import Env, spaces
+from walking_rewards import (create_clock_functions, calc_foot_frc_clock_reward, 
+                            calc_foot_vel_clock_reward, calc_height_reward,
+                            calc_orientation_reward, calc_step_reward)
  
 class H1StandEnv(Env):
     def __init__(self):
@@ -385,3 +389,297 @@ class H1StandEnv(Env):
         terminated = self._get_terminated(obs)
         info = reward_info
         return obs, reward, terminated, False, info
+
+
+class H1WalkEnv(H1StandEnv):
+    """
+    H1 Walking Environment that integrates with LearningHumanoidWalking framework
+    """
+    def __init__(self):
+        # Initialize walking task components BEFORE calling super().__init__
+        self._init_walking_task()
+        
+        # Now initialize the parent class
+        super().__init__()
+        
+        # Extended observation space for walking (includes clock phase and target info)
+        obs_size = 2 + 2 + len(self.joint_ids)*2 + 3  # phase + target distance + original obs
+        self.observation_space = spaces.Box(
+            low=-np.inf, high=np.inf, shape=(obs_size,), dtype=np.float32
+        )
+        
+    def _init_walking_task(self):
+        """Initialize walking task parameters"""
+        # Clock phase parameters
+        self._phase = 0
+        self._period = 80  # 2 seconds at 40Hz
+        
+        # Walking parameters
+        self._swing_duration = 0.4
+        self._stance_duration = 0.6
+        self._goal_speed_ref = 0.5  # m/s
+        self._goal_height_ref = 0.98  # meters (H1 standing height)
+        
+        # Load footstep plans
+        self._load_footstep_plans()
+        
+        # Initialize current target
+        self._current_plan_idx = 0
+        self._current_step_idx = 0
+        self._target_reached = False
+        
+        # Initialize clock functions for gait
+        self._init_clock_functions()
+        
+        # Foot force/velocity tracking
+        self.prev_left_foot_pos = np.array([0.0, 0.15, 0.0])  # H1 foot spacing
+        self.prev_right_foot_pos = np.array([0.0, -0.15, 0.0])
+        
+    def _load_footstep_plans(self):
+        """Load pre-generated footstep plans"""
+        try:
+            with open('/home/mehmed-damak/PROJECT09/LearningHumanoidWalking/utils/footstep_plans.txt', 'r') as fn:
+                lines = [l.strip() for l in fn.readlines()]
+            
+            self.footstep_plans = []
+            sequence = []
+            for line in lines:
+                if line == '---':
+                    if len(sequence):
+                        self.footstep_plans.append(sequence)
+                    sequence = []
+                    continue
+                else:
+                    sequence.append(np.array([float(l) for l in line.split(',')]))
+            
+            if len(sequence):  # Add last sequence
+                self.footstep_plans.append(sequence)
+                
+        except FileNotFoundError:
+            # Create simple forward walking plan as fallback
+            self.footstep_plans = [self._create_simple_walking_plan()]
+    
+    def _create_simple_walking_plan(self):
+        """Create a simple forward walking footstep plan"""
+        plan = []
+        for i in range(10):  # 10 steps
+            # Alternate between left (y=0.15) and right (y=-0.15) feet
+            y_pos = 0.15 if i % 2 == 0 else -0.15
+            x_pos = i * 0.3  # 30cm step length
+            plan.append(np.array([x_pos, y_pos, 0.0, 0.0]))  # [x, y, z, heading]
+        return plan
+    
+    def _init_clock_functions(self):
+        """Initialize clock functions for gait timing"""
+        self.right_clock, self.left_clock = create_clock_functions(
+            self._swing_duration, self._stance_duration, self._period
+        )
+    
+    def _get_current_footstep_targets(self):
+        """Get current footstep targets"""
+        if not self.footstep_plans:
+            return np.array([0.0, 0.0, 0.0]), np.array([0.0, 0.0, 0.0])
+        
+        current_plan = self.footstep_plans[self._current_plan_idx]
+        
+        # Get next two targets (for calculating midpoint)
+        t1_idx = min(self._current_step_idx, len(current_plan) - 1)
+        t2_idx = min(self._current_step_idx + 1, len(current_plan) - 1)
+        
+        t1 = current_plan[t1_idx][:3]  # [x, y, z]
+        t2 = current_plan[t2_idx][:3]
+        
+        return t1, t2
+    
+    def _get_foot_positions(self):
+        """Get current foot positions"""
+        # For H1, we need to get the foot body positions
+        # This is a simplified version - you may need to adjust based on your H1 model
+        left_foot_pos = np.array([
+            self.data.body('left_ankle_link').xpos[0],
+            self.data.body('left_ankle_link').xpos[1], 
+            self.data.body('left_ankle_link').xpos[2]
+        ])
+        
+        right_foot_pos = np.array([
+            self.data.body('right_ankle_link').xpos[0],
+            self.data.body('right_ankle_link').xpos[1],
+            self.data.body('right_ankle_link').xpos[2]
+        ])
+        
+        return left_foot_pos, right_foot_pos
+    
+    def _get_foot_velocities(self):
+        """Calculate foot velocities"""
+        left_foot_pos, right_foot_pos = self._get_foot_positions()
+        
+        left_foot_vel = left_foot_pos - self.prev_left_foot_pos
+        right_foot_vel = right_foot_pos - self.prev_right_foot_pos
+        
+        self.prev_left_foot_pos = left_foot_pos.copy()
+        self.prev_right_foot_pos = right_foot_pos.copy()
+        
+        return left_foot_vel, right_foot_vel
+    
+    def _get_foot_forces(self):
+        """Get foot contact forces (simplified)"""
+        # This is a simplified version - you may need to implement proper force sensing
+        left_force = 0.0
+        right_force = 0.0
+        
+        # Estimate robot mass (H1 is approximately 80kg)
+        robot_mass = 80.0
+        
+        # Check contact forces if your model has force sensors
+        # For now, estimate based on contact detection
+        if self._is_foot_in_contact('left'):
+            left_force = robot_mass * 9.81 / 2  # Half body weight
+        if self._is_foot_in_contact('right'):
+            right_force = robot_mass * 9.81 / 2
+            
+        return left_force, right_force
+    
+    def _get_roll_pitch(self):
+        """Get current roll and pitch angles"""
+        torso_mat = self.data.xmat[self.torso_body.id].reshape(3, 3)
+        z_axis = torso_mat[:, 2]
+        pitch = np.arcsin(z_axis[0])
+        roll = np.arcsin(z_axis[1])
+        return roll, pitch
+    
+    def _is_foot_in_contact(self, foot):
+        """Check if foot is in contact with ground"""
+        # Simplified contact detection based on height
+        if foot == 'left':
+            foot_height = self.data.body('left_ankle_link').xpos[2]
+        else:
+            foot_height = self.data.body('right_ankle_link').xpos[2]
+        
+        return foot_height < 0.05  # 5cm threshold
+    
+    def _get_walking_obs(self):
+        """Get walking-specific observations"""
+        # Get base observations
+        base_obs = self._get_obs()
+        
+        # Add phase information
+        phase_obs = np.array([
+            np.sin(2 * np.pi * self._phase / self._period),
+            np.cos(2 * np.pi * self._phase / self._period)
+        ])
+        
+        # Add target information
+        t1, t2 = self._get_current_footstep_targets()
+        root_pos = self.data.body('torso_link').xpos[:2]  # x, y position
+        target_distance = np.linalg.norm(root_pos - (t1[:2] + t2[:2]) / 2)
+        
+        target_obs = np.array([target_distance])
+        
+        # Combine all observations
+        full_obs = np.concatenate([base_obs, phase_obs, target_obs])
+        return full_obs.astype(np.float32)
+    
+    def _get_walking_reward(self):
+        """Calculate walking reward using LearningHumanoidWalking framework"""
+        # Get current foot data
+        left_foot_pos, right_foot_pos = self._get_foot_positions()
+        left_foot_vel, right_foot_vel = self._get_foot_velocities()
+        left_foot_force, right_foot_force = self._get_foot_forces()
+        
+        # Calculate step reward
+        t1, t2 = self._get_current_footstep_targets()
+        foot_positions = [left_foot_pos, right_foot_pos]
+        root_pos = self.data.body('torso_link').xpos
+        
+        step_reward = calc_step_reward(
+            foot_positions, t1, self._target_reached, root_pos, t2
+        )
+        
+        # Calculate foot force/velocity rewards
+        foot_frc_reward = calc_foot_frc_clock_reward(
+            left_foot_force, right_foot_force,
+            self.left_clock[0], self.right_clock[0], 
+            self._phase, robot_mass=80
+        )
+        
+        foot_vel_reward = calc_foot_vel_clock_reward(
+            left_foot_vel, right_foot_vel,
+            self.left_clock[1], self.right_clock[1],
+            self._phase
+        )
+        
+        # Height reward
+        current_height = self.data.body('torso_link').xpos[2]
+        height_reward = calc_height_reward(current_height, self._goal_height_ref, self._goal_speed_ref)
+        
+        # Orientation reward (keep upright)
+        roll, pitch = self._get_roll_pitch()
+        orient_reward = calc_orientation_reward(roll, pitch)
+        
+        # Combine rewards
+        total_reward = (
+            0.15 * foot_frc_reward +
+            0.15 * foot_vel_reward +
+            0.45 * step_reward +
+            0.15 * height_reward +
+            0.10 * orient_reward
+        )
+        
+        return total_reward
+    
+    def reset(self, seed=None, options=None):
+        """Reset environment for walking"""
+        obs, info = super().reset(seed, options)
+        
+        # Reset walking task
+        self._phase = np.random.choice([0, self._period // 2])  # Random phase start
+        self._current_step_idx = 0
+        self._current_plan_idx = np.random.randint(0, len(self.footstep_plans))
+        self._target_reached = False
+        
+        # Reset foot tracking
+        self.prev_left_foot_pos = np.array([0.0, 0.15, 0.0])
+        self.prev_right_foot_pos = np.array([0.0, -0.15, 0.0])
+        
+        return self._get_walking_obs(), info
+    
+    def step(self, action):
+        """Step environment with walking task"""
+        # Execute the action
+        obs, reward, terminated, truncated, info = super().step(action)
+        
+        # Update phase
+        self._phase = (self._phase + 1) % self._period
+        
+        # Check if target reached and update
+        self._update_target_progress()
+        
+        # Get walking observations and reward
+        walking_obs = self._get_walking_obs()
+        walking_reward = self._get_walking_reward()
+        
+        return walking_obs, walking_reward, terminated, truncated, info
+    
+    def _update_target_progress(self):
+        """Update target progress and switch targets"""
+        t1, _ = self._get_current_footstep_targets()
+        left_foot_pos, right_foot_pos = self._get_foot_positions()
+        
+        # Check if either foot reached the target
+        min_dist = min([
+            np.linalg.norm(left_foot_pos - t1),
+            np.linalg.norm(right_foot_pos - t1)
+        ])
+        
+        if min_dist < 0.1:  # 10cm threshold
+            self._target_reached = True
+            # Advance to next target
+            if self._phase == (self._period // 2):  # Mid-cycle
+                self._current_step_idx += 1
+                current_plan = self.footstep_plans[self._current_plan_idx]
+                if self._current_step_idx >= len(current_plan):
+                    # Switch to next plan or restart
+                    self._current_plan_idx = (self._current_plan_idx + 1) % len(self.footstep_plans)
+                    self._current_step_idx = 0
+        else:
+            self._target_reached = False
