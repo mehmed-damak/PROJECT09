@@ -1,4 +1,4 @@
-from h1_env import H1WalkEnv
+from h1_env import H1StandEnv
 import torch
 import time
 import sys
@@ -16,18 +16,8 @@ except Exception as e:
     print(f"❌ Could not load custom PPO model: {e}")
     exit()
 
-# Create environment - Use the walking environment directly
-env = H1WalkEnv()
-print(f"Environment observation space: {env.observation_space.shape}")
-
-# Test observation dimensions
-obs, _ = env.reset()
-print(f"Actual observation dimensions: {obs.shape}")
-
-if obs.shape[0] != 27:
-    print(f"❌ Warning: Expected 27 dimensions, got {obs.shape[0]}")
-else:
-    print("✅ Observation dimensions match expected (27D)")
+# Create environment
+env = H1StandEnv()
 
 # Ask user for visualization preference
 use_viewer = input("Use MuJoCo viewer? (y/n, default=n): ").lower().strip() == 'y'
